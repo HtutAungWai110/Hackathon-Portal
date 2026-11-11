@@ -1,22 +1,30 @@
 import { useNavigate } from 'react-router';
+import { LightRays } from '../../components/LightRays';
 import { StatusScreen } from '../../components/StatusScreen';
 import { authErrorMessage } from '../../lib/auth-error';
 import { useAuthStore } from '../auth/auth-store';
 import { useSignOut } from '../auth/session';
 import './home.css';
 
-function roleLabel(role: string | null | undefined): string {
-  if (role === 'admin') {
-    return 'Admin';
-  }
-  return 'Participant';
-}
+const STEPS = [
+  {
+    title: 'Create your account',
+    body: 'A password of your own, or continue with Google.',
+  },
+  {
+    title: 'Confirm your email',
+    body: 'The link proves the address is yours and keeps account recovery working.',
+  },
+  {
+    title: 'Apply for a position',
+    body: 'Choose the role, name the company behind it, and submit. Your account travels with the application.',
+  },
+];
 
 export function HomePage() {
   // The store is a mirror of the session query, kept in step by SessionBridge.
   // Reading it here is what makes the header update the moment sign in lands.
   const user = useAuthStore((state) => state.user);
-  const session = useAuthStore((state) => state.session);
   const signOut = useSignOut();
   const navigate = useNavigate();
 
@@ -24,84 +32,117 @@ export function HomePage() {
     return <StatusScreen busy title="Loading your account" />;
   }
 
-  const expiresAt = session !== null ? new Date(session.expiresAt) : null;
-  const role = roleLabel(user.role);
-
   async function handleSignOut() {
     try {
       await signOut.mutateAsync();
       navigate('/login', { replace: true });
     } catch {
-      // Rendered from `signOut.error` under the header.
+      // Rendered from `signOut.error` under the stage.
     }
   }
 
   return (
     <div className="home">
-      <header className="home-header">
-        <span className="home-brand">
-          <span className="home-brand__dot" aria-hidden="true" />
-          Hackathon Portal
-        </span>
-        <button
-          className="button button--quiet"
-          type="button"
-          disabled={signOut.isPending}
-          onClick={handleSignOut}
-        >
-          {signOut.isPending ? 'Signing out' : 'Sign out'}
-        </button>
-      </header>
+      <section className="home-stage">
+        <div className="home-stage__rays">
+          <LightRays
+            raysOrigin="top-center"
+            raysColor="#8beef8"
+            raysSpeed={0.7}
+            lightSpread={0.62}
+            rayLength={2.8}
+            rayDensity={1.1}
+            raySharpness={0.45}
+            glow={0.65}
+            haze={0.35}
+            atmosphere={0.8}
+            intensity={0.9}
+            fadeDistance={1.1}
+            saturation={1.2}
+            followMouse
+            mouseInfluence={0.08}
+            cursorShadow
+            clickPulse={false}
+            noiseAmount={0.02}
+            distortion={0.05}
+            opacity={0.85}
+            maxDevicePixelRatio={1.75}
+          />
+        </div>
+
+        <header className="home-header">
+          <span className="home-brand">
+            <span className="home-brand__dot" aria-hidden="true" />
+            Hackathon Portal
+          </span>
+          <button
+            className="button button--quiet button--inverse"
+            type="button"
+            disabled={signOut.isPending}
+            onClick={handleSignOut}
+          >
+            {signOut.isPending ? 'Signing out' : 'Sign out'}
+          </button>
+        </header>
+
+        <div className="home-stage__content">
+          <p className="home-eyebrow home-eyebrow--beam">Hackathon workspace</p>
+          <h1 className="home-greeting">Welcome, {user.name}.</h1>
+          <p className="home-lede">
+            This is your workspace for the hackathon. One account to apply for a
+            position, follow its review, and pick up where you left off.
+          </p>
+        </div>
+      </section>
 
       <main className="home-main">
-        <h1 className="home-greeting">Welcome, {user.name}.</h1>
-        <p className="home-lede">
-          You are signed in. Everything tied to your account starts from here.
-        </p>
-
         {signOut.error !== null ? (
           <p className="alert home-alert" role="alert">
             {authErrorMessage(signOut.error)}
           </p>
         ) : null}
 
-        <dl className="home-facts">
-          <div className="home-fact">
-            <dt>Email</dt>
-            <dd>{user.email}</dd>
-          </div>
-          <div className="home-fact">
-            <dt>Role</dt>
-            <dd>
-              <span
-                className={
-                  role === 'Admin' ? 'home-role home-role--admin' : 'home-role'
-                }
-              >
-                {role}
-              </span>
-            </dd>
-          </div>
-          <div className="home-fact">
-            <dt>Email status</dt>
-            <dd>{user.emailVerified ? 'Verified' : 'Not verified'}</dd>
-          </div>
-          <div className="home-fact">
-            <dt>Session ends</dt>
-            <dd>
-              {expiresAt !== null ? expiresAt.toLocaleDateString() : 'Active'}
-            </dd>
-          </div>
-        </dl>
+        <div className="home-columns">
+          <section className="home-about" aria-labelledby="home-about-title">
+            <p className="home-eyebrow">What this is</p>
+            <h2 id="home-about-title" className="home-section__title">
+              The front door to your application.
+            </h2>
+            <p>
+              Hackathon Portal is where participants register and where
+              organisers read what they submit. Your account is the applicant
+              on every application, so nothing has to be chased through a chat
+              thread.
+            </p>
+            <p>
+              Signing in does not submit anything by itself. It gives you a
+              place to do it, and a record of where each application stands.
+            </p>
+          </section>
 
-        <section className="home-next">
-          <h2 className="home-next__title">What this account can do</h2>
-          <p>
-            {role === 'Admin'
-              ? 'You can reach the admin routes on the API. Participant features are open to you as well.'
-              : 'You can sign in, keep your session, and use the participant routes. Admin routes stay closed to this role.'}
-          </p>
-        </section>
+          <section className="home-how" aria-labelledby="home-how-title">
+            <p className="home-eyebrow">How it works</p>
+            <h2 id="home-how-title" className="home-section__title">
+              Three steps, in this order.
+            </h2>
+            <ol className="home-steps">
+              {STEPS.map((step, index) => (
+                <li className="home-step" key={step.title}>
+                  <span className="home-step__number" aria-hidden="true">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <div>
+                    <h3 className="home-step__title">{step.title}</h3>
+                    <p className="home-step__body">{step.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <p className="home-how__note">
+              Organisers review the queue from this same portal.
+            </p>
+          </section>
+        </div>
       </main>
     </div>
   );

@@ -34,14 +34,19 @@ Do not describe libraries as present when they are not. Verified state of this p
   It is not persisted and is not the authority on access — see "Client state" below.
 - **Better Auth client 1.7.19** (`better-auth/react`), pinned to the server's version, with
   the admin client plugin so `user.role` is typed. It talks to `VITE_API_URL`, default
-  `http://localhost:3000`, and sends cookies with `credentials: 'include'`.
+  `http://localhost:3000`, and sends cookies with `credentials: 'include'`. It is only the
+  identity provider: sign in, sign up, Google, verification.
+- **Token client** (`src/lib/api-client.ts`, `src/lib/session-api.ts`). Application routes
+  accept only `Authorization: Bearer <accessToken>`, taken from the `access_token` cookie, with
+  one refresh call through `POST /session/refresh` on a `401`. Do not add a raw `fetch` to an
+  API route.
 - **React Compiler is enabled** (`@rolldown/plugin-babel` + `babel-plugin-react-compiler` in
   `vite.config.ts`). It memoizes automatically: do not add `useMemo`, `useCallback`, or `memo`
   for re-render reasons without a measured cause. Still use functional `setState` updates.
 - **Not installed:** no test runner, no component library, no CSS-in-JS.
-- `src/` layout: `app/` (router), `lib/` (auth client, query client, error mapping,
-  validation rules), `components/` (shared UI), `features/auth/` (screens, session hooks,
-  the zustand store, route guards), `features/home/`.
+- `src/` layout: `app/` (router), `lib/` (api client, session api, auth client, query client,
+  error mapping, validation rules), `components/` (shared UI), `features/auth/` (screens,
+  session hooks, the zustand store, route guards), `features/home/`.
 
 Adding a dependency is a decision to state out loud, not a silent side effect.
 
@@ -92,19 +97,27 @@ change.
 
 ## Talking to the backend
 
-- Base URL comes from `VITE_API_URL` (`src/lib/auth-client.ts`), default
-  `http://localhost:3000`. There is **no global prefix**: routes are `/auth/*` and `/admin/*`
-  as the server declares them. Read the server for the exact path instead of guessing.
-- `fetch` to the API must send `credentials: 'include'`. Better Auth authenticates with cookies,
-  so without this every call is anonymous. The shared client already does this; a raw `fetch`
-  added elsewhere must repeat it.
+- Base URL comes from `VITE_API_URL` (`src/lib/api-config.ts`), default
+  `http://localhost:3000`. There is **no global prefix**: routes are `/auth/*`, `/session/*`,
+  and `/admin/*` as the server declares them. Read the server for the exact path instead of
+  guessing.
+- Application routes take **only** `Authorization: Bearer <accessToken>`. Call them through
+  `apiFetch` from `src/lib/api-client.ts`: it reads the token from the `access_token` cookie,
+  attaches the header, refreshes once on a `401`, and normalizes errors into `ApiError`. A raw
+  `fetch` to an app route bypasses all of that.
+- The token routes (`/session/exchange`, `/session/refresh`, `/session/logout`) need
+  `auth: 'none'` and `credentials: 'include'`. They authenticate with cookies, and a refresh
+  must never trigger another refresh. `apiFetch` already sets credentials on every call.
+- The refresh cookie is `httpOnly`, so the browser sends it and JavaScript never sees it. Never
+  try to read, copy, or store a refresh token.
 - CORS is enabled server side for the `CLIENT_URL` origins with credentials. There is no Vite
   proxy, and adding one would hide a real misconfiguration: if a call fails with a CORS error,
   add the origin to the server's `CLIENT_URL` and Better Auth `trustedOrigins`, not a proxy.
 - Handle the server's error shape, do not invent one. Nest errors arrive as
   `{ statusCode, message, error }`, and `message` can be a string or a string array from
-  validation. Normalize that in the API layer so components never branch on it.
-- `401` means signed out, `403` means signed in without the role. Do not treat `403` as a
+  validation. `apiFetch` normalizes that, so components never branch on it.
+- `401` means the access token is missing or expired, and `apiFetch` already gave the refresh
+  one chance. `403` means signed in without the role, or banned. Do not treat `403` as a
   session expiry and log the user out.
 - Authorization is the server's job. Hiding an admin link is a UX choice, not security.
 
@@ -120,10 +133,16 @@ change.
 - Colocate page layout CSS with the feature that owns it (`features/auth/auth.css`), and reach
   for Tailwind utilities first for anything new. Do not mix both on the same element.
 - Design tokens live in `src/index.css` under `@theme`. Use them instead of raw hex values:
-  `--color-ink`, `--color-paper`, `--color-line`, `--color-body`, `--color-muted`,
-  `--color-signal`, `--color-focus`, `--color-danger`, `--color-success`, plus
-  `--font-display` and `--font-body`. The same names drive utilities (`bg-ink`, `text-muted`,
-  `font-display`), so a new colour is added in exactly one place.
+  `--color-ink`, `--color-ink-soft`, `--color-paper`, `--color-card`, `--color-line`,
+  `--color-line-strong`, `--color-body`, `--color-muted`, `--color-signal`,
+  `--color-signal-deep`, `--color-signal-soft`, `--color-focus`, `--color-danger`,
+  `--color-success`, plus `--font-display`, `--font-body`, and `--font-mono`. The same names
+  drive utilities (`bg-ink`, `text-muted`, `font-display`), so a new colour is added in exactly
+  one place. `--color-signal` is light cyan and only reads on the dark stage; `--color-signal-deep`
+  is the same hue dark enough for paper.
+- `../components/LightRays` is the one deliberate decorative element: a WebGL beam on the auth
+  brand panel and the home stage. Everything around it stays quiet. It has a CSS-gradient
+  fallback, so keep the `radial-gradient` behind it if you touch those surfaces.
 - Editing a shared primitive (`.button`, `.alert`, `.text-link`) means editing the `components`
   layer in `src/index.css`; utilities on the element still win, which is intentional.
 - Tailwind scans `src/` and `index.html` only (`@source` with `source(none)`). Adding a file
@@ -172,11 +191,15 @@ affect instead of refetching everything.
 
 - One `QueryClient` for the app, created in `src/lib/query-client.ts`. Do not create another.
 - Query keys are `as const` arrays exported from the feature, not inline literals.
-- Sign in refetches `sessionKeys.all` and is awaited before navigating, so guarded routes do
-  not flash their loading state. Sign **up** must not touch the session query: there is no
-  session yet, the refetch returns `null`, and the bridge would erase the pending account.
-- Better Auth returns errors instead of throwing. Wrap calls with `toAuthError` from
-  `src/lib/auth-error.ts` so the UI only ever renders one message shape.
+- Sign in runs `authClient.signIn.email` and then `exchangeSession()` **inside** the mutation,
+  then writes `sessionKeys.all` and the store from the returned session. Guarded routes
+  therefore already have data when they mount. Do not move the exchange into `onSuccess`: an
+  error there does not reject `mutateAsync`.
+- Sign **up** must not touch the session query: there is no session and no token pair yet, the
+  refetch returns `null`, and the bridge would erase the pending account.
+- Two error shapes reach the auth screens: `ApiError` from `apiFetch`, and the object Better
+  Auth returns instead of throwing. Wrap both with `toAuthError` from `src/lib/auth-error.ts`
+  so the UI only ever renders one message shape.
 
 ### Client state
 
@@ -184,7 +207,7 @@ Zustand (`src/features/auth/auth-store.ts`) is a **mirror**, not a second source
 
 - The session query stays authoritative. The store exists so a component can read the current
   user without threading props, and so the UI updates the moment a mutation resolves.
-- Mutations write it: sign in calls `setAuthenticated`, sign up calls `setPendingVerification`,
+- Mutations write it: sign in calls `setSession`, sign up calls `setPendingVerification`,
   sign out calls `clear`. `SessionBridge` (`features/auth/session-bridge.tsx`, mounted above the
   router) syncs it from the session query in a layout effect, and leaves it alone when the query
   errors — a dead API is not a sign out.

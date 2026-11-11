@@ -44,11 +44,14 @@ Google sign in and email plus password sign in, sessions, email verification, pa
    - [x] Auth config, mail service, module wiring, guard order (AC-1..6, 10, 13, 17)
    - [x] Public and admin routes (AC-7, 8)
    - [x] Admin seed script (AC-9)
+   - [x] Access and refresh tokens for app routes (spec 0002, AC-1..10)
    - [ ] Tests plus live Google check (AC-1..17)
 - [ ] Verify it: `/check verify authentication & roles`
 - [ ] Test it: `/test authentication & roles`
 
-Spec 0001 in `docs/specs/0001-add-better-auth-with-roles.md` · code in `src/auth/`, `src/admin/`, `src/config/env.validation.ts`, `prisma/schema.prisma`, `prisma/seed.ts`
+Spec 0001 in `docs/specs/0001-add-better-auth-with-roles.md` · token layer (amends 0001) in
+`docs/specs/0002-mint-api-tokens.md` · code in `src/auth/`, `src/admin/`,
+`src/config/env.validation.ts`, `prisma/schema.prisma`, `prisma/seed.ts`
 
 ## Deferred
 

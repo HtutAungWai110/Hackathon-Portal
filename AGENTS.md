@@ -25,7 +25,7 @@ to suit one screen without saying so.
 ## Ports and wiring
 
 - API: `http://localhost:3000`. There is no global route prefix, so routes are `/auth/*`,
-  `/admin/*`, and whatever a feature module declares.
+  `/session/*`, `/admin/*`, and whatever a feature module declares.
 - SPA: `http://localhost:5173` (`client` `npm run dev`). `http://localhost:5137` is allowed
   too, in case Vite picks that port.
 - CORS is enabled with `credentials: true` for the origins in the server's `CLIENT_URL`
@@ -37,16 +37,31 @@ to suit one screen without saying so.
 
 - Auth is **Better Auth**, mounted as middleware at `/auth`. It parses its own bodies. Nest
   guards, pipes, interceptors, and `@Roles` never see `/auth/*` requests. Do not add a
-  controller or service to "wrap" it.
-- Sessions are cookies, not a bearer token in `localStorage`. Client `fetch` calls need
-  `credentials: 'include'`, and CORS must allow credentials.
+  controller or service to "wrap" it. The token routes live beside it at `/session/*` because
+  `/auth/*` is swallowed by that middleware.
+- Better Auth is only the identity provider. After it confirms a sign in, Nest mints a
+  15 minute access JWT and a 7 day refresh JWT (`server/src/auth/session/`). Application
+  routes accept **only** `Authorization: Bearer <accessToken>`; the Better Auth session cookie
+  is not a second way into the API.
+- Both tokens are cookies. `access_token` is `httpOnly: false` on path `/` so the SPA can copy
+  it into the header; `refresh_token` is `httpOnly` on path `/session` and is read only by
+  `POST /session/refresh`. Never put a token in `localStorage`.
+- A `401` from an app route means the access token is missing or expired: the client calls
+  `POST /session/refresh` once, then retries once. `403` means signed in without permission
+  (or banned); do not treat it as an expired session.
+- Cookies are shared across ports on `localhost`, so the SPA on `:5173` and the API on `:3000`
+  see the same jar. Client `fetch` calls still need `credentials: 'include'`.
 - Roles are `participant` (every sign up defaults here) and `admin`. The server enforces
-  authorization. The client hides UI for convenience only; never treat a hidden button as
-  access control.
+  authorization, and the JWT guard loads the user row on every request so a role change or ban
+  takes effect on the next call rather than at token expiry.
+- Sign up mints no tokens, because the email is not verified. Sign in is the first moment a
+  token pair exists. The SPA exchanges the Better Auth cookie at `POST /session/exchange`.
 - Verification links return to `${CLIENT_URL}/login?verified=true` on the SPA, which shows the
   confirmed state before the form.
 - Google sign in is not verified end to end. The Google console redirect URI must be
   `http://localhost:3000/auth/callback/google`.
+- `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` are required, at least 32 characters each.
+  Rotating either signs every user out.
 
 ## Server gotchas that cost hours
 
@@ -56,7 +71,8 @@ to suit one screen without saying so.
 - `bodyParser: false` is set globally in `server/src/main.ts` because Better Auth installs its
   own parsers. Any new raw or multipart route must add its own parser.
 - Specs live in `server/docs/specs/`, scope and milestones in `server/docs/scope/`. Update them
-  when behavior changes; they are the record of why things are the way they are.
+  when behavior changes; they are the record of why things are the way they are. The token
+  layer is spec 0002, which amends 0001.
 
 ## Workflow
 

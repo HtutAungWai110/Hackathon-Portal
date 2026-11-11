@@ -3,6 +3,11 @@
 **Date**: 2026-11-10
 **Status**: In Progress
 
+> **Amended by** [0002](0002-mint-api-tokens.md): application routes now authenticate with a
+> short lived `Authorization: Bearer` access token minted by `/session/*`, not the Better Auth
+> session cookie. Read AC-7, AC-8, AC-14, and the request pipeline below as the record of the
+> first slice; 0002 is the current contract.
+
 ## Summary
 
 This spec adds authentication to the NestJS API using Better Auth, with Google and email plus password sign in. Every new user gets the participant role, and the admin role is granted only by a seed script. Sessions, email verification, password reset, and the Prisma schema all live in the existing `hackathon` PostgreSQL database.

@@ -30,7 +30,7 @@
 .field__input:focus-visible {
   outline: none;
   border-color: var(--color-focus);
-  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.18);
+  box-shadow: 0 0 0 3px rgba(11, 114, 133, 0.16);
 }
 
 .field__input:disabled {

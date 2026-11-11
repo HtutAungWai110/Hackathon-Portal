@@ -9,24 +9,28 @@
    utilities and the authored CSS: `bg-ink`, `text-muted`, `font-display`, and
    `var(--color-ink)` all read the same value. */
 @theme {
-  --color-ink: #0d1526;
-  --color-ink-soft: #16213a;
-  --color-paper: #f7f8fa;
+  /* Blue cyan. `ink` is the dark stage the light falls onto, `signal` is the
+     beam, `signal-deep` is the same hue dark enough to read on paper. */
+  --color-ink: #04141f;
+  --color-ink-soft: #082333;
+  --color-paper: #eef5f8;
   --color-card: #ffffff;
-  --color-line: #dfe3ea;
-  --color-line-strong: #c3cad6;
-  --color-body: #16202f;
-  --color-muted: #5b6474;
-  --color-signal: #ff5a36;
-  --color-signal-soft: #fff0ec;
-  --color-focus: #1d4ed8;
-  --color-danger: #b3261e;
-  --color-danger-soft: #fdf1f0;
+  --color-line: #d5e3ea;
+  --color-line-strong: #b6cbd6;
+  --color-body: #0a2130;
+  --color-muted: #4e6b7b;
+  --color-signal: #22d3ee;
+  --color-signal-deep: #0b7285;
+  --color-signal-soft: #e4faff;
+  --color-focus: #0b7285;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdf0ee;
   --color-success: #0f6b4f;
   --color-success-soft: #edf7f2;
 
   --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
 }
 
 @layer base {
@@ -129,7 +133,7 @@
   }
 
   .button--primary:hover:not(:disabled) {
-    background: #f04a25;
+    background: #0fc3dd;
   }
 
   .button--ghost {
@@ -155,6 +159,22 @@
     border-color: var(--color-ink);
   }
 
+  /* For the quiet button when it sits on the dark stage or header. */
+  .button--inverse {
+    border-color: rgba(228, 250, 255, 0.35);
+    color: #e4faff;
+  }
+
+  .button--inverse:hover:not(:disabled) {
+    border-color: var(--color-signal);
+    color: #ffffff;
+  }
+
+  /* Deep teal on a beam-lit stage is too low contrast, so the ring goes cyan. */
+  .button--inverse:focus-visible {
+    outline-color: var(--color-signal);
+  }
+
   .button--block {
     width: 100%;
   }
@@ -178,7 +198,7 @@
   .text-link {
     color: var(--color-ink);
     text-decoration: underline;
-    text-decoration-color: var(--color-signal);
+    text-decoration-color: var(--color-signal-deep);
     text-decoration-thickness: 2px;
     text-underline-offset: 3px;
     font-weight: 500;

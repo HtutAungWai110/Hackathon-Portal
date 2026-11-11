@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { LightRays } from '../../components/LightRays';
 import './auth.css';
 
 type AuthLayoutProps = {
@@ -19,8 +20,8 @@ const STEPS = [
     body: 'The link proves the address is yours and keeps recovery working.',
   },
   {
-    title: 'Start your application',
-    body: 'You land signed in as a participant, ready to work.',
+    title: 'Apply for a position',
+    body: 'Choose the role, name the company behind it, and submit.',
   },
 ];
 
@@ -34,6 +35,32 @@ export function AuthLayout({
   return (
     <div className="auth-shell">
       <aside className="auth-brand">
+        <div className="auth-brand__rays">
+          <LightRays
+            raysOrigin="top-center"
+            raysColor="#8ff0ff"
+            raysSpeed={0.5}
+            lightSpread={0.55}
+            rayLength={2.6}
+            rayDensity={0.9}
+            raySharpness={0.42}
+            glow={0.4}
+            haze={0.28}
+            atmosphere={0.55}
+            intensity={1.3}
+            fadeDistance={1.15}
+            saturation={1.25}
+            followMouse
+            mouseInfluence={0.05}
+            cursorShadow={false}
+            clickPulse={false}
+            noiseAmount={0.02}
+            distortion={0.03}
+            opacity={1}
+            maxDevicePixelRatio={1.5}
+          />
+        </div>
+
         <div className="auth-brand__mark">
           <span className="auth-brand__dot" aria-hidden="true" />
           <span>Hackathon Portal</span>
