@@ -15,6 +15,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | B | Arcjet protection | Foundation | existing |
 | C | Prisma data layer | Foundation | existing |
 | 1 | Authentication & roles | Slice 1 | in-progress |
+| 2 | Hackathon events & sponsors | Slice 2 | in-progress |
 
 ## Foundations
 
@@ -52,6 +53,32 @@ Google sign in and email plus password sign in, sessions, email verification, pa
 Spec 0001 in `docs/specs/0001-add-better-auth-with-roles.md` · token layer (amends 0001) in
 `docs/specs/0002-mint-api-tokens.md` · code in `src/auth/`, `src/admin/`,
 `src/config/env.validation.ts`, `prisma/schema.prisma`, `prisma/seed.ts`
+
+## Slice 2: Event catalogue
+
+### 2. Hackathon events & sponsors · in-progress
+Admins create hackathon events and attach companies as main sponsors or co-sponsors. Events
+are public to read once published, and every admin route is behind the `admin` role. The
+existing `Applications` table is unchanged.
+**Done when:** an admin can create an event with sponsors and a visitor can list published
+events without an account.
+- [x] Design it (spec): `/architect hackathon events & sponsors`
+- [ ] Build it: `/develop hackathon events & sponsors`
+   - [x] Schema, migration, generated client (AC-1, 2)
+   - [x] Events module, DTOs, service rules (AC-2..5, 7, 8)
+   - [x] Admin routes behind class level `@Roles(['admin'])` (AC-6)
+   - [x] Admin promotion via the seed script (AC-9)
+   - [x] Admin dashboard: event ledger, one-click publish
+   - [x] Event creation screen at `/admin/dashboard/hackathon/create` with visibility and
+     sponsor comboboxes (AC-11)
+   - [x] Event images: `imageUrls` column, multer upload endpoint, `bucket/event_images` served
+     at `/bucket` (AC-12); the create form uploads on pick and shows removable thumbnails
+   - [ ] Client: public event list and event page
+- [ ] Verify it: `/check verify hackathon events & sponsors`
+- [ ] Test it: `/test hackathon events & sponsors`
+
+Spec 0003 in `docs/specs/0003-hackathon-events-and-sponsors.md` · code in `src/events/`,
+`src/admin/admin-events.controller.ts`, `prisma/schema.prisma`
 
 ## Deferred
 

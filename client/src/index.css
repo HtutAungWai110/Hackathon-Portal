@@ -28,6 +28,19 @@
   --color-success: #0f6b4f;
   --color-success-soft: #edf7f2;
 
+  /* shadcn's semantic names, mapped onto the palette above so generated
+     primitives inherit this identity instead of shipping a second one. */
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-body);
+  --color-popover: var(--color-card);
+  --color-popover-foreground: var(--color-body);
+  --color-accent: var(--color-signal-soft);
+  --color-accent-foreground: var(--color-ink);
+  --color-muted-foreground: var(--color-muted);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line-strong);
+  --color-ring: var(--color-focus);
+
   --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
@@ -55,6 +68,14 @@
 
   body {
     margin: 0;
+  }
+
+  /* Tailwind v4 leaves `border` colour as currentColor. shadcn primitives
+     assume a neutral hairline, and the design already has one. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-line);
   }
 
   h1,

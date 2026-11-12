@@ -42,6 +42,13 @@
   border-color: var(--color-danger);
 }
 
+.field__textarea {
+  min-height: 118px;
+  padding: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 .field__hint {
   font-size: 13px;
   color: var(--color-muted);

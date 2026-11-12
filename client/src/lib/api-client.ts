@@ -149,7 +149,13 @@ async function send(
   if (token !== null) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  if (init.body !== undefined && !headers.has('Content-Type')) {
+  // FormData must keep the browser's own multipart boundary, so it is the one
+  // body type that does not get the JSON header.
+  if (
+    init.body !== undefined &&
+    !(init.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json');
   }
 

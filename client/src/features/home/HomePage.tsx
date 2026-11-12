@@ -1,9 +1,7 @@
-import { useNavigate } from 'react-router';
+import { AppNav } from '../../components/AppNav';
 import { LightRays } from '../../components/LightRays';
 import { StatusScreen } from '../../components/StatusScreen';
-import { authErrorMessage } from '../../lib/auth-error';
 import { useAuthStore } from '../auth/auth-store';
-import { useSignOut } from '../auth/session';
 import './home.css';
 
 const STEPS = [
@@ -23,22 +21,11 @@ const STEPS = [
 
 export function HomePage() {
   // The store is a mirror of the session query, kept in step by SessionBridge.
-  // Reading it here is what makes the header update the moment sign in lands.
+  // Reading it here is what makes the greeting update the moment sign in lands.
   const user = useAuthStore((state) => state.user);
-  const signOut = useSignOut();
-  const navigate = useNavigate();
 
   if (user === null) {
     return <StatusScreen busy title="Loading your account" />;
-  }
-
-  async function handleSignOut() {
-    try {
-      await signOut.mutateAsync();
-      navigate('/login', { replace: true });
-    } catch {
-      // Rendered from `signOut.error` under the stage.
-    }
   }
 
   return (
@@ -70,20 +57,7 @@ export function HomePage() {
           />
         </div>
 
-        <header className="home-header">
-          <span className="home-brand">
-            <span className="home-brand__dot" aria-hidden="true" />
-            Hackathon Portal
-          </span>
-          <button
-            className="button button--quiet button--inverse"
-            type="button"
-            disabled={signOut.isPending}
-            onClick={handleSignOut}
-          >
-            {signOut.isPending ? 'Signing out' : 'Sign out'}
-          </button>
-        </header>
+        <AppNav />
 
         <div className="home-stage__content">
           <p className="home-eyebrow home-eyebrow--beam">Hackathon workspace</p>
@@ -96,12 +70,6 @@ export function HomePage() {
       </section>
 
       <main className="home-main">
-        {signOut.error !== null ? (
-          <p className="alert home-alert" role="alert">
-            {authErrorMessage(signOut.error)}
-          </p>
-        ) : null}
-
         <div className="home-columns">
           <section className="home-about" aria-labelledby="home-about-title">
             <p className="home-eyebrow">What this is</p>

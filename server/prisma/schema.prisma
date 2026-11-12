@@ -34,6 +34,7 @@ model User {
   sessions            Session[]
   accounts            Account[]
   Applications        Applications[]
+  createdEvents       HackathonEvent[]
 }
 
 model Session {
@@ -86,4 +87,74 @@ enum ApplicationStatus {
   IN_PROGRESS
   INTERVIEW
   REJECTED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  COMPLETED
+  CANCELLED
+}
+
+enum SponsorTier {
+  MAIN
+  CO_SPONSOR
+}
+
+/// An event the portal hosts. Only PUBLISHED events are listed publicly; the
+/// rest are visible to admins while they are being prepared.
+model HackathonEvent {
+  id                   String        @id @default(cuid())
+  title                String
+  description          String
+  startsAt             DateTime
+  endsAt               DateTime
+  registrationDeadline DateTime?
+  /// Null means the event is online and has no venue.
+  location             String?
+  /// Public URLs of the event's images, `/bucket/event_images/<file>` for the
+  /// ones uploaded through the API. Order is the order they were attached.
+  imageUrls            String[]      @default([])
+  status               EventStatus   @default(DRAFT)
+  /// Null once the organising account is deleted; the event outlives it.
+  createdById          String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  createdBy            User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  sponsors             Sponsor[]
+
+  @@index([status, startsAt])
+  @@index([createdById])
+}
+
+/// A company that can sponsor events. One row, reused across every event it
+/// backs, so its logo and site are entered once.
+model Company {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  website   String?
+  logoUrl   String?
+  industry  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  sponsors  Sponsor[]
+}
+
+/// The sponsorship itself: which company backs which event, and at what tier.
+/// A company appears at most once per event, so promoting it from co-sponsor
+/// to main sponsor is an update rather than a second row.
+model Sponsor {
+  id           String        @id @default(cuid())
+  eventId      String
+  companyId    String
+  tier         SponsorTier   @default(CO_SPONSOR)
+  /// Free text for what they put in, for example "Cloud credits" or "$5,000".
+  contribution String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  event        HackathonEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([eventId, companyId])
+  @@index([companyId])
 }

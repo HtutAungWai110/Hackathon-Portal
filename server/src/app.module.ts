@@ -10,8 +10,10 @@ import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './auth/session/jwt-auth.guard.js';
 import { SessionModule } from './auth/session/session.module.js';
 import { validateEnv } from './config/env.validation.js';
+import { EventsModule } from './events/events.module.js';
 import { ObserveModule } from './observe.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { UploadsModule } from './uploads/uploads.module.js';
 
 @Module({
   imports: [
@@ -67,6 +69,8 @@ import { PrismaModule } from './prisma/prisma.module.js';
     PrismaModule,
     AuthModule,
     SessionModule,
+    EventsModule,
+    UploadsModule,
     AdminModule,
   ],
   controllers: [AppController],

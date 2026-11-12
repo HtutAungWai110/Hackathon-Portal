@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router';
+import { Link, Navigate, useLocation } from 'react-router';
 import { StatusScreen } from '../../components/StatusScreen';
 import { authErrorMessage } from '../../lib/auth-error';
 import { useSession } from './session';
@@ -46,6 +46,46 @@ export function RequireSession({ children }: { children: ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+/**
+ * Runs inside `RequireSession`, so a session already exists by the time this
+ * renders. A participant gets a real screen explaining the boundary rather
+ * than a redirect that looks like a broken link; the server still refuses
+ * every admin route they might call directly.
+ */
+function AdminGate({ children }: { children: ReactNode }) {
+  const session = useSession();
+  const user = session.data?.user;
+
+  if (user === undefined) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'admin') {
+    return (
+      <StatusScreen
+        title="This desk is for organisers"
+        description="Only accounts with the admin role can open or publish events. Your workspace is still here."
+        action={
+          <Link className="button button--ghost" to="/">
+            Back to your workspace
+          </Link>
+        }
+      />
+    );
+  }
+
+  return <>{children}</>;
+}
+
+/** The admin dashboard entry gate: signed in, then role checked. */
+export function RequireAdmin({ children }: { children: ReactNode }) {
+  return (
+    <RequireSession>
+      <AdminGate>{children}</AdminGate>
+    </RequireSession>
+  );
 }
 
 /** Keeps a signed in user off the auth screens. */

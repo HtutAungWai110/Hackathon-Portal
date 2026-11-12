@@ -73,6 +73,10 @@ to suit one screen without saying so.
 - Specs live in `server/docs/specs/`, scope and milestones in `server/docs/scope/`. Update them
   when behavior changes; they are the record of why things are the way they are. The token
   layer is spec 0002, which amends 0001.
+- Event images are written to `server/bucket/event_images/` (contents gitignored) and served at
+  `/bucket/...` by `useStaticAssets`. Both sides derive the path from the process working
+  directory, so the API must be started from `server/`. `POST /admin/uploads/event-images` is
+  the multipart route, and multer supplies its own parser.
 
 ## Workflow
 

@@ -43,7 +43,12 @@ Do not describe libraries as present when they are not. Verified state of this p
 - **React Compiler is enabled** (`@rolldown/plugin-babel` + `babel-plugin-react-compiler` in
   `vite.config.ts`). It memoizes automatically: do not add `useMemo`, `useCallback`, or `memo`
   for re-render reasons without a measured cause. Still use functional `setState` updates.
-- **Not installed:** no test runner, no component library, no CSS-in-JS.
+- **shadcn/ui primitives** in `src/components/ui/` (`command` on cmdk, `popover` on Radix),
+  installed with the shadcn CLI. The theme stays ours: semantic aliases (`--color-popover`,
+  `--color-accent`, `--color-muted-foreground`) map onto the tokens in `src/index.css`. Add
+  more with `npx shadcn@latest add <component>`; never run `shadcn init`, which would replace
+  the theme. `@/*` maps to `src/*` in both `tsconfig.app.json` and `vite.config.ts`.
+- **Not installed:** no test runner, no CSS-in-JS.
 - `src/` layout: `app/` (router), `lib/` (api client, session api, auth client, query client,
   error mapping, validation rules), `components/` (shared UI), `features/auth/` (screens,
   session hooks, the zustand store, route guards), `features/home/`.
@@ -65,8 +70,8 @@ npm run preview    # serve the built output
   nothing about types.
 - There is no `npm test` yet. If a task needs tests, add Vitest and `@testing-library/react`
   and wire the script in the same change; do not leave half-configured test infrastructure.
-- TypeScript here is **not** `strict` yet (unlike `server/`). When you touch `tsconfig.app.json`,
-  turn `strict` on. Until then, write `strict`-clean code anyway.
+- TypeScript here is **strict**, like `server/`. Keep it that way: new code has to satisfy
+  `strictNullChecks` and the rest, not just compile under the old settings.
 
 ## Skills
 

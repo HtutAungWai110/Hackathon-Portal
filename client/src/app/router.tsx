@@ -4,8 +4,12 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { SignupPage } from '../features/auth/SignupPage';
 import {
   RedirectIfAuthenticated,
+  RequireAdmin,
   RequireSession,
 } from '../features/auth/guards';
+import { AdminDashboardRoute } from '../features/admin/AdminDashboardRoute';
+import { CreateHackathonRoute } from '../features/admin/CreateHackathonRoute';
+import { ADMIN_DASHBOARD_PATH, CREATE_HACKATHON_PATH } from '../features/admin/paths';
 import { HomePage } from '../features/home/HomePage';
 
 export const router = createBrowserRouter([
@@ -15,6 +19,22 @@ export const router = createBrowserRouter([
       <RequireSession>
         <HomePage />
       </RequireSession>
+    ),
+  },
+  {
+    path: ADMIN_DASHBOARD_PATH,
+    element: (
+      <RequireAdmin>
+        <AdminDashboardRoute />
+      </RequireAdmin>
+    ),
+  },
+  {
+    path: CREATE_HACKATHON_PATH,
+    element: (
+      <RequireAdmin>
+        <CreateHackathonRoute />
+      </RequireAdmin>
     ),
   },
   {
