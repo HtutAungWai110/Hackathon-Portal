@@ -8,6 +8,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateEventDto } from './dto/create-event.dto.js';
 import type { CreateSponsorDto } from './dto/create-sponsor.dto.js';
+import type { ReplaceEventDto } from './dto/replace-event.dto.js';
 import type { UpdateEventDto } from './dto/update-event.dto.js';
 import type { UpdateSponsorDto } from './dto/update-sponsor.dto.js';
 
@@ -19,6 +20,15 @@ const SPONSORS = {
   },
 } satisfies Prisma.HackathonEventInclude;
 
+/**
+ * The console read also carries how many people registered, so a collapsed row
+ * can say so before the registrations themselves are fetched.
+ */
+const ADMIN_INCLUDE = {
+  ...SPONSORS,
+  _count: { select: { registrations: true } },
+} satisfies Prisma.HackathonEventInclude;
+
 /** Statuses a visitor may see. Drafts and cancellations stay internal. */
 const PUBLIC_STATUSES = ['PUBLISHED', 'COMPLETED'] as const;
 
@@ -26,6 +36,23 @@ const PUBLIC_STATUSES = ['PUBLISHED', 'COMPLETED'] as const;
 export type EventWithSponsors = Prisma.HackathonEventGetPayload<{
   include: { sponsors: { include: { company: true } } };
 }>;
+
+type AdminEventRow = Prisma.HackathonEventGetPayload<{
+  include: typeof ADMIN_INCLUDE;
+}>;
+
+/**
+ * An event as the console reads it. `_count` is Prisma's shape; the API says
+ * `registrationCount`, which is what the client actually needs.
+ */
+export type AdminEvent = Omit<AdminEventRow, '_count'> & {
+  registrationCount: number;
+};
+
+function toAdminEvent(row: AdminEventRow): AdminEvent {
+  const { _count, ...event } = row;
+  return { ...event, registrationCount: _count.registrations };
+}
 
 function parseDate(value: string, field: string): Date {
   const date = new Date(value);
@@ -90,11 +117,12 @@ export class EventsService {
    * The admin view: every event whatever its status, so a draft is visible
    * while it is being prepared. Not paginated yet; hackathon seasons are small.
    */
-  listAll(): Promise<EventWithSponsors[]> {
-    return this.prisma.hackathonEvent.findMany({
+  async listAll(): Promise<AdminEvent[]> {
+    const events = await this.prisma.hackathonEvent.findMany({
       orderBy: { startsAt: 'asc' },
-      include: SPONSORS,
+      include: ADMIN_INCLUDE,
     });
+    return events.map(toAdminEvent);
   }
 
   /**
@@ -116,32 +144,162 @@ export class EventsService {
     return event;
   }
 
-  async create(input: CreateEventDto, createdById: string) {
-    const startsAt = parseDate(input.startsAt, 'startsAt');
-    const endsAt = parseDate(input.endsAt, 'endsAt');
-    const registrationDeadline =
-      input.registrationDeadline === undefined
-        ? null
-        : parseDate(input.registrationDeadline, 'registrationDeadline');
-    assertSchedule(startsAt, endsAt, registrationDeadline);
+  /**
+   * One event whatever its status. The console reads drafts through here so an
+   * organiser can preview the page before it is public; `findOne` is still the
+   * only door a visitor has.
+   */
+  async findOneForAdmin(id: string): Promise<AdminEvent> {
+    const event = await this.prisma.hackathonEvent.findUnique({
+      where: { id },
+      include: ADMIN_INCLUDE,
+    });
+    if (event === null) {
+      throw new NotFoundException('No event with that id.');
+    }
+    return toAdminEvent(event);
+  }
 
-    return this.prisma.hackathonEvent.create({
+  /**
+   * What the public page needs to decide between Register, Registered, and
+   * Closed. Opening is judged on the server's clock so every visitor sees the
+   * same answer, and a draft is a 404 just like it is everywhere else public.
+   */
+  async registrationStatus(eventId: string, userId: string) {
+    const event = await this.prisma.hackathonEvent.findFirst({
+      where: { id: eventId, status: { in: [...PUBLIC_STATUSES] } },
+      select: { status: true, startsAt: true, registrationDeadline: true },
+    });
+    if (event === null) {
+      throw new NotFoundException('No event with that id.');
+    }
+
+    const registration = await this.prisma.eventRegistration.findUnique({
+      where: { eventId_userId: { eventId, userId } },
+      select: { createdAt: true },
+    });
+
+    const now = Date.now();
+    const deadlinePassed =
+      event.registrationDeadline !== null &&
+      event.registrationDeadline.getTime() <= now;
+    return {
+      registered: registration !== null,
+      registeredAt: registration?.createdAt ?? null,
+      // The event page promises "open until the event starts" when no deadline
+      // is set, so the start is the closing time in that case.
+      open:
+        event.status === 'PUBLISHED' &&
+        !deadlinePassed &&
+        event.startsAt.getTime() > now,
+    };
+  }
+
+  /**
+   * A participant takes a place at an event. The unique pair makes a repeated
+   * click a conflict rather than a second registration, which is also what
+   * protects against two tabs racing.
+   */
+  async register(eventId: string, userId: string) {
+    const event = await this.prisma.hackathonEvent.findUnique({
+      where: { id: eventId },
+      select: { status: true, startsAt: true, registrationDeadline: true },
+    });
+    if (event === null) {
+      throw new NotFoundException('No event with that id.');
+    }
+    if (event.status !== 'PUBLISHED') {
+      throw new BadRequestException('This event is not open for registration.');
+    }
+
+    const now = Date.now();
+    const closed =
+      event.startsAt.getTime() <= now ||
+      (event.registrationDeadline !== null &&
+        event.registrationDeadline.getTime() <= now);
+    if (closed) {
+      throw new BadRequestException('Registration for this event has closed.');
+    }
+
+    try {
+      return await this.prisma.eventRegistration.create({
+        data: { eventId, userId },
+        select: { id: true, eventId: true, userId: true, createdAt: true },
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException(
+          'You are already registered for this event.',
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * The console's registrations list for one event. The participant's name and
+   * email are the point of it; nothing else about the account is exposed.
+   */
+  async listRegistrations(eventId: string) {
+    await this.requireEvent(eventId);
+    return this.prisma.eventRegistration.findMany({
+      where: { eventId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        createdAt: true,
+        user: {
+          select: { id: true, name: true, email: true, image: true },
+        },
+      },
+    });
+  }
+
+  async create(input: CreateEventDto, createdById: string): Promise<AdminEvent> {
+    const schedule = this.parseSchedule(input);
+
+    const event = await this.prisma.hackathonEvent.create({
       data: {
         title: input.title.trim(),
         description: input.description.trim(),
-        startsAt,
-        endsAt,
-        registrationDeadline,
+        ...schedule,
         location: optionalText(input.location),
+        backgroundUrl: optionalText(input.backgroundUrl),
         imageUrls: input.imageUrls ?? [],
         status: input.status ?? 'DRAFT',
         createdById,
       },
-      include: SPONSORS,
+      include: ADMIN_INCLUDE,
     });
+    return toAdminEvent(event);
   }
 
-  async update(id: string, input: UpdateEventDto) {
+  /**
+   * `PUT /admin/events/:id`: the body states the whole event, so every column
+   * is written, and an absent optional column is cleared rather than kept.
+   * Sponsors are not part of this resource and are untouched.
+   */
+  async replace(id: string, input: ReplaceEventDto): Promise<AdminEvent> {
+    await this.requireEvent(id);
+    const schedule = this.parseSchedule(input);
+
+    const event = await this.prisma.hackathonEvent.update({
+      where: { id },
+      data: {
+        title: input.title.trim(),
+        description: input.description.trim(),
+        ...schedule,
+        location: optionalText(input.location ?? undefined),
+        backgroundUrl: optionalText(input.backgroundUrl ?? undefined),
+        imageUrls: input.imageUrls,
+        status: input.status,
+      },
+      include: ADMIN_INCLUDE,
+    });
+    return toAdminEvent(event);
+  }
+
+  async update(id: string, input: UpdateEventDto): Promise<AdminEvent> {
     const existing = await this.prisma.hackathonEvent.findUnique({
       where: { id },
     });
@@ -160,10 +318,12 @@ export class EventsService {
     const registrationDeadline =
       input.registrationDeadline === undefined
         ? existing.registrationDeadline
-        : parseDate(input.registrationDeadline, 'registrationDeadline');
+        : input.registrationDeadline === null
+          ? null // Explicit null clears the deadline; omission keeps it.
+          : parseDate(input.registrationDeadline, 'registrationDeadline');
     assertSchedule(startsAt, endsAt, registrationDeadline);
 
-    return this.prisma.hackathonEvent.update({
+    const event = await this.prisma.hackathonEvent.update({
       where: { id },
       data: {
         title: input.title?.trim(),
@@ -175,11 +335,16 @@ export class EventsService {
           input.location === undefined
             ? undefined
             : optionalText(input.location),
+        backgroundUrl:
+          input.backgroundUrl === undefined
+            ? undefined
+            : optionalText(input.backgroundUrl ?? undefined),
         imageUrls: input.imageUrls,
         status: input.status,
       },
-      include: SPONSORS,
+      include: ADMIN_INCLUDE,
     });
+    return toAdminEvent(event);
   }
 
   async remove(id: string): Promise<void> {
@@ -240,6 +405,27 @@ export class EventsService {
   async removeSponsor(eventId: string, sponsorId: string): Promise<void> {
     await this.requireSponsor(eventId, sponsorId);
     await this.prisma.sponsor.delete({ where: { id: sponsorId } });
+  }
+
+  /**
+   * Parses the schedule columns and checks them as a set. Creation and
+   * replacement both state the whole schedule, so they share this; a partial
+   * edit still merges the stored values first and checks the result.
+   */
+  private parseSchedule(input: {
+    startsAt: string;
+    endsAt: string;
+    registrationDeadline?: string | null;
+  }): { startsAt: Date; endsAt: Date; registrationDeadline: Date | null } {
+    const startsAt = parseDate(input.startsAt, 'startsAt');
+    const endsAt = parseDate(input.endsAt, 'endsAt');
+    const registrationDeadline =
+      input.registrationDeadline === undefined ||
+      input.registrationDeadline === null
+        ? null
+        : parseDate(input.registrationDeadline, 'registrationDeadline');
+    assertSchedule(startsAt, endsAt, registrationDeadline);
+    return { startsAt, endsAt, registrationDeadline };
   }
 
   private async requireEvent(id: string): Promise<void> {

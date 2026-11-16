@@ -17,6 +17,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--color-chalk);
 }
 
 .combobox__placeholder {
@@ -31,19 +32,19 @@
   width: 15px;
   height: 15px;
   flex: none;
-  color: var(--color-muted);
+  color: var(--color-signal);
 }
 
 .combobox__option {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
 }
 
 .combobox__option-label {
-  font-weight: 500;
-  color: var(--color-ink);
+  font-weight: 600;
+  color: var(--color-chalk);
 }
 
 .combobox__option-description {
@@ -57,5 +58,5 @@
   height: 15px;
   flex: none;
   margin-left: auto;
-  color: var(--color-signal-deep);
+  color: var(--color-signal);
 }

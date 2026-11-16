@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { hackathonKeys } from '../hackathon/hackathon-api';
 import {
   adminEventKeys,
   publishAdminEvent,
@@ -11,7 +12,12 @@ export function usePublishEvent() {
   return useMutation({
     mutationFn: (id: string) => publishAdminEvent(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: adminEventKeys.all });
+      // Publishing is the moment the event becomes visible on the home page,
+      // so the public list has to forget its cached copy.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminEventKeys.all }),
+        queryClient.invalidateQueries({ queryKey: hackathonKeys.all }),
+      ]);
     },
   });
 }

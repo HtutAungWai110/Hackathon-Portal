@@ -1,0 +1,16 @@
+# Local infrastructure the API expects. PostgreSQL is assumed to be running
+# already (pgAdmin or a local server); Redis only backs the mail queue.
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: hackathon-redis
+    ports:
+      - '6379:6379'
+    # Mail jobs are short lived and the API retries a failed send, so there is
+    # nothing here worth persisting across a restart.
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10

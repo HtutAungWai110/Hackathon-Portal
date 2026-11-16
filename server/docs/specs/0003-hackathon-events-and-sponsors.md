@@ -63,6 +63,12 @@ and it was run with `lmaohtutaungwai@gmail.com`.
   WebP, AVIF, and GIF are accepted; SVG is rejected. The bucket is served at `/bucket`, so an
   event's stored `imageUrls` resolve without a token. `imageUrls` is capped at 8 on both create
   and update.
+- **AC-13**: An event has one optional header image in `backgroundUrl`.
+  `POST /admin/uploads/event-background` takes a single `image` field under the same type and
+  size rules as the gallery and answers `{ url }`. `null` clears the header image.
+- **AC-14**: The edit form saves with `PUT /admin/events/:id`, which states the whole event and
+  requires every column the editor owns; an omitted optional column is `400`, not "keep".
+  `PATCH /admin/events/:id` stays for partial updates and is what the publish button uses.
 
 ## Options considered
 
@@ -116,7 +122,7 @@ create keeps the admin on one form while still producing a reusable company row.
 
 | Model | Fields that matter | Rules |
 |---|---|---|
-| `HackathonEvent` | `title`, `description`, `startsAt`, `endsAt`, `registrationDeadline?`, `location?`, `imageUrls`, `status`, `createdById?` | `endsAt > startsAt`; deadline `<= startsAt`; `location` null means online; `imageUrls` is an ordered list of public paths |
+| `HackathonEvent` | `title`, `description`, `startsAt`, `endsAt`, `registrationDeadline?`, `location?`, `imageUrls`, `backgroundUrl?`, `status`, `createdById?` | `endsAt > startsAt`; deadline `<= startsAt`; `location` null means online; `imageUrls` is an ordered list of public paths; `backgroundUrl` is one public path or null |
 | `Company` | `name` (unique), `website?`, `logoUrl?`, `industry?` | Matched case insensitively on create |
 | `Sponsor` | `eventId`, `companyId`, `tier`, `contribution?` | Unique `(eventId, companyId)`; event cascades, company restricts |
 
@@ -131,15 +137,47 @@ accident; no delete route exists for companies in this slice.
 | `/events` | GET | anonymous | `PUBLISHED` and `COMPLETED`, soonest first, sponsors included |
 | `/events/:id` | GET | anonymous | `404` when missing, draft, or cancelled |
 | `/admin/events` | GET | admin | Every status, drafts included: the console's read |
+| `/admin/events/:id` | GET | admin | One event whatever its status, sponsors included: the preview read |
 | `/admin/companies` | GET | admin | Every company, alphabetically: the sponsor picker's source |
 | `/admin/events` | POST | admin | Records `createdById` from the verified token |
-| `/admin/events/:id` | PATCH | admin | Partial; the schedule is re-checked against stored values |
+| `/admin/events/:id` | PATCH | admin | Partial; `null` clears the deadline or background; the schedule is re-checked against stored values |
+| `/admin/events/:id` | PUT | admin | Replaces the whole event; every editor-owned column is required, so a missing one is `400` |
 | `/admin/events/:id` | DELETE | admin | `204`; sponsorships cascade |
 | `/admin/events/:id/sponsors` | POST | admin | Nested `company`; `409` on a duplicate |
 | `/admin/events/:id/sponsors/:sponsorId` | PATCH | admin | `tier`, `contribution` |
 | `/admin/events/:id/sponsors/:sponsorId` | DELETE | admin | `204` |
 | `/admin/uploads/event-images` | POST | admin | `multipart/form-data`, field `images` (max 8, 5 MB each); answers `{ urls }` |
-| `/bucket/event_images/:file` | GET | anonymous | Static; the path an event stores in `imageUrls` |
+| `/admin/uploads/event-background` | POST | admin | `multipart/form-data`, field `image` (one file, 5 MB); answers `{ url }` |
+| `/bucket/event_images/:file` | GET | anonymous | Static; the path an event stores in `imageUrls` and `backgroundUrl` |
+
+**Client detail page**:
+- The SPA renders one event at `/hackathon?id=<eventId>`; the admin ledger links to it from the
+  event title.
+- A visitor reads `/events/:id`, so a draft answers `404` and the page says the event is not
+  public. A signed in admin reads `/admin/events/:id` instead and can preview a draft or a
+  cancelled event, labelled in the page header.
+- The route is outside the admin guard on purpose: it is the public page, and the server, not
+  the link, decides what an anonymous visitor may see.
+- The hero shows a "Manage event" button to admins only, which opens
+  `/admin/dashboard/hackathon/edit?id=<eventId>`. That screen is the create form in edit mode:
+  it replaces the event with a PUT, reconciles sponsorships (dropped rows deleted, new ones
+  attached, changed tiers patched), and offers deletion behind a confirmation dialog.
+- The form has a header-image field beside the gallery: one wide file, uploaded through
+  `/admin/uploads/event-background` as soon as it is picked. On the public page it sits behind
+  the event title, dimmed and tinted toward the board so the title keeps its contrast.
+- The description stays plain text. The form puts two buttons above the textarea, bullet list and
+  numbered list, which write the markers into the selected lines and take them back out when
+  pressed again, so an author never has to remember the syntax. The public page parses the text
+  into paragraphs and lists without touching HTML: a blank line starts a paragraph, a line
+  beginning with `-` or `*` is a bullet, and a line beginning with `1.` is a numbered step. The
+  admin ledger shows the same text flattened to one line, so markers never leak into the summary.
+- Admin actions report through one global message queue pinned to the top right: creating or
+  deleting an event pushes a success or failure message, newest on top, sliding in from the
+  right and fading out after a few seconds. The form's own banner stays as the in context detail
+  and the next step, so a message can outlive the screen that raised it without carrying a link.
+  A save that finishes cleanly returns to the screen that opened the form, which is the season or
+  the public event page. A save where a sponsor failed stays put, because that list is the reason
+  to read the banner.
 
 **Validation**:
 - `class-validator` and `class-transformer` are now installed, and `main.ts` registers
@@ -153,8 +191,9 @@ accident; no delete route exists for companies in this slice.
   enough and a route added later inherits it.
 - `@CurrentUser()` (new param decorator) reads the `PublicUser` the guard attached, so handlers
   do not repeat the null check.
-- `EventsController` is `@AllowAnonymous()` at class level; the service, not the guard, decides
-  which statuses are public.
+- `EventsController` marks its two read handlers `@AllowAnonymous()`; the service, not the
+  guard, decides which statuses are public. Registration handlers on the same controller are
+  authenticated, which spec [0005](0005-event-registrations.md) added.
 
 **Key invariants**:
 - A sponsorship is unique per event and company.

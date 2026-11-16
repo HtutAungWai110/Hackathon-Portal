@@ -1,5 +1,6 @@
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
+import { PasswordField } from '../../components/PasswordField';
 import { TextField } from '../../components/TextField';
 import { authErrorMessage } from '../../lib/auth-error';
 import { emailRules } from '../../lib/validation';
@@ -11,6 +12,8 @@ type SignupValues = {
   name: string;
   email: string;
   password: string;
+  /** Typed twice so a typo cannot lock someone out of the account they just made. */
+  confirmPassword: string;
 };
 
 export function SignupPage() {
@@ -20,7 +23,12 @@ export function SignupPage() {
     getValues,
     formState: { errors, isSubmitting },
   } = useForm<SignupValues>({
-    defaultValues: { name: '', email: '', password: '' },
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
   });
 
   const signUp = useSignUp();
@@ -133,9 +141,8 @@ export function SignupPage() {
           error={errors.email?.message}
           {...register('email', emailRules)}
         />
-        <TextField
+        <PasswordField
           label="Password"
-          type="password"
           autoComplete="new-password"
           hint="At least 8 characters."
           required
@@ -146,6 +153,19 @@ export function SignupPage() {
               value: 8,
               message: 'Use at least 8 characters for your password.',
             },
+          })}
+        />
+        <PasswordField
+          label="Confirm password"
+          autoComplete="new-password"
+          required
+          error={errors.confirmPassword?.message}
+          {...register('confirmPassword', {
+            required: 'Repeat your password.',
+            // Checked again on submit, so changing the first password after
+            // this one is filled in is still caught before anything is sent.
+            validate: (value, values) =>
+              value === values.password || 'The two passwords do not match.',
           })}
         />
 

@@ -35,6 +35,7 @@ model User {
   accounts            Account[]
   Applications        Applications[]
   createdEvents       HackathonEvent[]
+  eventRegistrations  EventRegistration[]
 }
 
 model Session {
@@ -115,6 +116,9 @@ model HackathonEvent {
   /// Public URLs of the event's images, `/bucket/event_images/<file>` for the
   /// ones uploaded through the API. Order is the order they were attached.
   imageUrls            String[]      @default([])
+  /// The one wide image behind the event's header, `/bucket/event_images/<file>`
+  /// for one uploaded through the API. Null means the header stays plain.
+  backgroundUrl        String?
   status               EventStatus   @default(DRAFT)
   /// Null once the organising account is deleted; the event outlives it.
   createdById          String?
@@ -122,9 +126,25 @@ model HackathonEvent {
   updatedAt            DateTime      @updatedAt
   createdBy            User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
   sponsors             Sponsor[]
+  registrations        EventRegistration[]
 
   @@index([status, startsAt])
   @@index([createdById])
+}
+
+/// One participant holding a place at one event. The unique pair is the rule:
+/// clicking Register twice is the same registration, not a second row.
+model EventRegistration {
+  id        String         @id @default(cuid())
+  eventId   String
+  userId    String
+  createdAt DateTime       @default(now())
+  event     HackathonEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId, createdAt])
+  @@index([userId])
 }
 
 /// A company that can sponsor events. One row, reused across every event it

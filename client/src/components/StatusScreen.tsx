@@ -26,7 +26,7 @@ export function StatusScreen({
       <div className="w-full max-w-[440px]">
         {busy ? (
           <span
-            className="mb-5 block h-1 w-7 origin-left rounded-sm bg-signal motion-safe:animate-pulse"
+            className="mb-5 block h-1.5 w-10 origin-left bg-signal motion-safe:animate-pulse"
             aria-hidden="true"
           />
         ) : null}

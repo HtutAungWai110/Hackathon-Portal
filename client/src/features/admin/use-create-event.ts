@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { authErrorMessage } from '../../lib/auth-error';
+import { pushMessage } from '../messages/message-store';
+import { hackathonKeys } from '../hackathon/hackathon-api';
 import {
   adminEventKeys,
   attachEventSponsor,
@@ -46,9 +48,36 @@ export function useCreateEvent() {
 
       return { event, attachedSponsors, failedSponsors };
     },
-    onSuccess: async () => {
-      // The new row belongs to the same list the page is already showing.
-      await queryClient.invalidateQueries({ queryKey: adminEventKeys.all });
+    onSuccess: async (result) => {
+      const { event, failedSponsors } = result;
+      const draft = event.status === 'DRAFT';
+      const sponsors =
+        failedSponsors.length === 1
+          ? 'one sponsor could not be attached'
+          : `${failedSponsors.length} sponsors could not be attached`;
+
+      pushMessage({
+        tone: 'success',
+        title: draft ? 'Event saved as a draft' : 'Event created',
+        body:
+          failedSponsors.length === 0
+            ? `${event.title} is on the calendar${draft ? ' as a draft' : ''}.`
+            : `${event.title} is on the calendar, but ${sponsors}.`,
+      });
+
+      // The new row belongs to the console list; a published one also belongs
+      // to the public calendar on the home page.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminEventKeys.all }),
+        queryClient.invalidateQueries({ queryKey: hackathonKeys.all }),
+      ]);
+    },
+    onError: (error) => {
+      pushMessage({
+        tone: 'error',
+        title: 'Event was not created',
+        body: authErrorMessage(error),
+      });
     },
   });
 }

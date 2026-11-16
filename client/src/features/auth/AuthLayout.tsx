@@ -38,25 +38,25 @@ export function AuthLayout({
         <div className="auth-brand__rays">
           <LightRays
             raysOrigin="top-center"
-            raysColor="#8ff0ff"
-            raysSpeed={0.5}
-            lightSpread={0.55}
-            rayLength={2.6}
-            rayDensity={0.9}
-            raySharpness={0.42}
-            glow={0.4}
-            haze={0.28}
-            atmosphere={0.55}
-            intensity={1.3}
-            fadeDistance={1.15}
-            saturation={1.25}
+            raysColor="#29f0ff"
+            raysSpeed={0.45}
+            lightSpread={0.5}
+            rayLength={2.4}
+            rayDensity={0.85}
+            raySharpness={0.5}
+            glow={0.3}
+            haze={0.2}
+            atmosphere={0.4}
+            intensity={0.8}
+            fadeDistance={1.1}
+            saturation={1.1}
             followMouse
-            mouseInfluence={0.05}
+            mouseInfluence={0.04}
             cursorShadow={false}
             clickPulse={false}
             noiseAmount={0.02}
             distortion={0.03}
-            opacity={1}
+            opacity={0.62}
             maxDevicePixelRatio={1.5}
           />
         </div>

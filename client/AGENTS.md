@@ -48,10 +48,15 @@ Do not describe libraries as present when they are not. Verified state of this p
   `--color-accent`, `--color-muted-foreground`) map onto the tokens in `src/index.css`. Add
   more with `npx shadcn@latest add <component>`; never run `shadcn init`, which would replace
   the theme. `@/*` maps to `src/*` in both `tsconfig.app.json` and `vite.config.ts`.
+- **Motion 14** (`motion/react`) drives the global message queue's slide and fade. It is the
+  only animation library in the package: wrap an animated surface in
+  `MotionConfig reducedMotion="user"`, and do not put Tailwind `transition-*` classes on the
+  same element as `motion` props.
 - **Not installed:** no test runner, no CSS-in-JS.
 - `src/` layout: `app/` (router), `lib/` (api client, session api, auth client, query client,
   error mapping, validation rules), `components/` (shared UI), `features/auth/` (screens,
-  session hooks, the zustand store, route guards), `features/home/`.
+  session hooks, the zustand store, route guards), `features/home/`, `features/messages/`
+  (the global message queue).
 
 Adding a dependency is a decision to state out loud, not a silent side effect.
 

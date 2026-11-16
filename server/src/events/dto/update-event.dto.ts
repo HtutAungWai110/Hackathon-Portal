@@ -37,7 +37,7 @@ export class UpdateEventDto {
 
   @IsOptional()
   @IsISO8601()
-  readonly registrationDeadline?: string;
+  readonly registrationDeadline?: string | null;
 
   @IsOptional()
   @IsString()
@@ -51,6 +51,12 @@ export class UpdateEventDto {
   @IsString({ each: true })
   @MaxLength(500, { each: true })
   readonly imageUrls?: string[];
+
+  /** `null` removes the header image; omission leaves it alone. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  readonly backgroundUrl?: string | null;
 
   @IsOptional()
   @IsEnum(EventStatus)

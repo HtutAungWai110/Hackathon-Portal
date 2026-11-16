@@ -49,6 +49,15 @@ export class CreateEventDto {
   @MaxLength(500, { each: true })
   readonly imageUrls?: string[];
 
+  /**
+   * The URL returned by `POST /admin/uploads/event-background`. Omitted or
+   * empty means the event header stays plain.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  readonly backgroundUrl?: string;
+
   @IsOptional()
   @IsEnum(EventStatus)
   readonly status?: EventStatus;

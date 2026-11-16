@@ -1,11 +1,11 @@
+import { Link } from 'react-router';
 import type { AdminEvent } from './events-api';
-import { eventImageSrc } from './events-api';
-import {
-  STATUS_LABELS,
-  dateTab,
-  formatDeadline,
-  formatEventRange,
-} from './event-format';
+import { apiAssetUrl } from '../../lib/api-config';
+import { descriptionPreview } from '../../lib/description';
+import { formatDeadline, formatEventRange } from '../../lib/event-display';
+import { hackathonPath } from '../hackathon/paths';
+import { STATUS_LABELS, dateTab } from './event-format';
+import { EventRegistrations } from './EventRegistrations';
 
 type EventRowProps = {
   event: AdminEvent;
@@ -44,7 +44,14 @@ export function EventRow({
       </time>
 
       <div className="ledger-row__body">
-        <h3 className="ledger-row__title">{event.title}</h3>
+        <h3 className="ledger-row__title">
+          <Link
+            className="ledger-row__title-link"
+            to={hackathonPath(event.id)}
+          >
+            {event.title}
+          </Link>
+        </h3>
 
         <p className="ledger-row__meta">
           <time dateTime={event.startsAt}>
@@ -60,14 +67,16 @@ export function EventRow({
           ) : null}
         </p>
 
-        <p className="ledger-row__description">{event.description}</p>
+        <p className="ledger-row__description">
+          {descriptionPreview(event.description)}
+        </p>
 
         {event.imageUrls.length > 0 ? (
           <ul className="ledger-row__images">
             {visibleImages.map((url, index) => (
               <li className="ledger-row__image" key={url}>
                 <img
-                  src={eventImageSrc(url)}
+                  src={apiAssetUrl(url)}
                   alt={`${event.title}, image ${index + 1}`}
                   loading="lazy"
                   decoding="async"
@@ -112,6 +121,12 @@ export function EventRow({
         ) : (
           <p className="ledger-row__no-sponsors">No sponsors yet</p>
         )}
+
+        <EventRegistrations
+          eventId={event.id}
+          eventTitle={event.title}
+          count={event.registrationCount}
+        />
 
         {publishError !== null ? (
           <p className="ledger-row__error" role="alert">

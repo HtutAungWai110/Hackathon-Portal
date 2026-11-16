@@ -77,6 +77,11 @@ to suit one screen without saying so.
   `/bucket/...` by `useStaticAssets`. Both sides derive the path from the process working
   directory, so the API must be started from `server/`. `POST /admin/uploads/event-images` is
   the multipart route, and multer supplies its own parser.
+- Email is queued through BullMQ, so the mail worker needs Redis: `docker compose up -d redis`
+  in `server/`. Without it, signup still works but no message leaves. BullMQ 6 does not bundle
+  `ioredis`, so it is an explicit dependency.
+- Adding a server dependency needs `--legacy-peer-deps`: `@arcjet/nest@1.15` peers on
+  `@nestjs/common ^10 || ^11` while this project runs Nest 12.
 
 ## Workflow
 

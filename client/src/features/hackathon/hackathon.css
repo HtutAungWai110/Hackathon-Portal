@@ -1,0 +1,833 @@
+.hackathon {
+  min-height: 100svh;
+  background: var(--color-paper);
+}
+
+/* The same board as the console: drafting grid, hazard strip along the bottom
+   edge, so a shared link still reads as this product. The stage is tall on
+   purpose: the header image is the event's poster, and the copy sits at its
+   foot rather than covering it. */
+.hackathon-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 340px;
+  border-bottom: 2px solid var(--color-line);
+  background: radial-gradient(
+    58% 90% at 16% -14%,
+    rgba(41, 240, 255, 0.1) 0%,
+    rgba(41, 240, 255, 0.02) 46%,
+    transparent 72%
+  );
+  background-color: var(--color-ink);
+  color: var(--color-chalk);
+}
+
+/* A header image earns the height; without one the stage stays compact instead
+   of leaving a poster sized gap above the copy. */
+.hackathon-stage--with-image {
+  min-height: clamp(440px, 56svh, 660px);
+}
+
+.hackathon-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-image:
+    linear-gradient(rgba(41, 240, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(41, 240, 255, 0.05) 1px, transparent 1px);
+  background-size: 34px 34px;
+  pointer-events: none;
+}
+
+.hackathon-stage::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  height: 10px;
+  border-top: 2px solid #000;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-signal) 0 14px,
+    var(--color-ink) 14px 28px
+  );
+}
+
+.hackathon-stage > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* The organiser's header image. It is dimmed only where the copy sits, so the
+   picture reads across the stage while the title keeps its contrast. */
+.hackathon-stage > .hackathon-stage__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hackathon-stage__backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(6, 8, 10, 0.94) 0%,
+      rgba(6, 8, 10, 0.6) 44%,
+      rgba(6, 8, 10, 0.06) 100%
+    ),
+    linear-gradient(0deg, rgba(6, 8, 10, 0.96) 0%, rgba(6, 8, 10, 0) 58%);
+}
+
+.hackathon-stage__backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.82;
+  filter: saturate(0.85) contrast(1.05);
+}
+
+.hackathon-stage__inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(28px, 4vw, 44px) clamp(20px, 4vw, 40px)
+    clamp(44px, 6vw, 76px);
+}
+
+.hackathon-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-signal);
+}
+
+.hackathon-eyebrow::before {
+  content: '[ ';
+}
+
+.hackathon-eyebrow::after {
+  content: ' ]';
+}
+
+.hackathon-title {
+  margin-top: 12px;
+  max-width: 22ch;
+  font-size: clamp(36px, 5.4vw, 62px);
+  line-height: 0.94;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--color-chalk);
+  text-shadow: 5px 5px 0 rgba(41, 240, 255, 0.22);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.hackathon-lede {
+  margin-top: 16px;
+  max-width: 62ch;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(211, 232, 238, 0.82);
+}
+
+/* The way into the console for an admin, kept beside the event's own facts
+   rather than in the navigation. */
+.hackathon-stage__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+/* Registration lives on the stage next to Manage event. The note states are
+   stamps rather than banners; the success one is the only green on the page. */
+.hackathon-registration-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.hackathon-registration-hint {
+  max-width: 48ch;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-muted);
+}
+
+.hackathon-registration-note {
+  max-width: 52ch;
+  padding: 8px 10px;
+  border: 2px dashed var(--color-line-strong);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+}
+
+.hackathon-registration-note--done {
+  border: 2px solid var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.hackathon-registration-note--error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  border: 2px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-body);
+}
+
+.hackathon-registration-note .text-link {
+  color: var(--color-signal);
+}
+
+.hackathon-main {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(28px, 4.5vw, 48px) clamp(20px, 4vw, 40px) 96px;
+}
+
+/* ---- Gallery --------------------------------------------------------- */
+
+.hackathon-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+  margin: 0 0 clamp(26px, 3vw, 38px);
+  padding: 0;
+  list-style: none;
+}
+
+.hackathon-gallery__frame {
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border: 2px solid var(--color-line-strong);
+  background: var(--color-line);
+  box-shadow: 5px 5px 0 #000;
+  transition:
+    border-color 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.hackathon-gallery__frame:hover {
+  border-color: var(--color-signal);
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 rgba(41, 240, 255, 0.22);
+}
+
+.hackathon-gallery__frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The frame is one button so the whole image is the target, keyboard included. */
+.hackathon-gallery__open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.hackathon-gallery__open img {
+  transition: transform 220ms ease;
+}
+
+.hackathon-gallery__open:hover img {
+  transform: scale(1.015);
+}
+
+.hackathon-gallery__open:focus-visible {
+  outline: 3px solid var(--color-signal);
+  outline-offset: -4px;
+}
+
+/* A single image gets a wider crop instead of a lonely grid cell. */
+.hackathon-gallery__frame:only-child {
+  aspect-ratio: 21 / 9;
+}
+
+/* ---- Story and facts ------------------------------------------------- */
+
+.hackathon-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: clamp(24px, 3.5vw, 44px);
+}
+
+.hackathon-story {
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+.hackathon-aside {
+  display: flex;
+  flex: 0 1 340px;
+  flex-direction: column;
+  gap: 26px;
+  min-width: 0;
+}
+
+.hackathon-section__title {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--color-chalk);
+}
+
+.hackathon-section__title::before {
+  content: '';
+  display: block;
+  width: 34px;
+  height: 4px;
+  margin-bottom: 10px;
+  background: var(--color-signal);
+}
+
+/* The description is plain text that may carry paragraphs, bullets, and
+   numbered steps. Each block gets the same type treatment; the markers are the
+   only decoration, so a list reads as structure rather than a wall of prose. */
+.hackathon-description {
+  max-width: 72ch;
+  margin-top: 12px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--color-body);
+}
+
+.hackathon-description + .hackathon-description {
+  margin-top: 14px;
+}
+
+/* An author's own line breaks stay put, which is why the text blocks carry this
+   rather than the page. */
+.hackathon-description,
+.hackathon-description li {
+  white-space: pre-line;
+}
+
+.hackathon-description:is(ul, ol) {
+  padding-left: 1.6em;
+}
+
+.hackathon-description li + li {
+  margin-top: 8px;
+}
+
+.hackathon-description ul {
+  list-style-type: square;
+}
+
+.hackathon-description ol {
+  list-style-type: decimal-leading-zero;
+}
+
+.hackathon-description li::marker {
+  color: var(--color-signal);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  font-weight: 700;
+}
+
+/* The facts are a ticket pinned to the board: solid cyan edge, black offset. */
+.hackathon-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 20px;
+  border: 2px solid var(--color-line-strong);
+  border-top: 8px solid var(--color-signal);
+  background: var(--color-card);
+  box-shadow: 8px 8px 0 #000;
+}
+
+.hackathon-fact {
+  padding-left: 12px;
+  border-left: 2px solid var(--color-line);
+}
+
+.hackathon-fact dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.hackathon-fact dd {
+  margin: 3px 0 0;
+  font-size: 14.5px;
+  color: var(--color-chalk);
+}
+
+.hackathon-sponsors {
+  padding-top: 4px;
+}
+
+.hackathon-sponsor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hackathon-sponsor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2px solid var(--color-line);
+  background: var(--color-card);
+}
+
+/* A main sponsor is the only tier that gets the signal colour. */
+.hackathon-sponsor--main {
+  border-color: var(--color-signal);
+  background: var(--color-signal-soft);
+  box-shadow: 4px 4px 0 #000;
+}
+
+.hackathon-sponsor__name {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-chalk);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hackathon-sponsor__tier {
+  flex: none;
+  padding: 2px 6px;
+  border: 2px solid currentColor;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.hackathon-sponsor--main .hackathon-sponsor__tier {
+  color: var(--color-signal);
+}
+
+/* ---- States ---------------------------------------------------------- */
+
+.hackathon-note {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+}
+
+.hackathon-error {
+  max-width: 640px;
+  padding: 26px;
+  border: 2px solid var(--color-danger);
+  border-left-width: 8px;
+  background: var(--color-danger-soft);
+  box-shadow: 8px 8px 0 #000;
+}
+
+.hackathon-error__title {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: #ffc2d1;
+}
+
+.hackathon-error__body {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #ffc2d1;
+  opacity: 0.82;
+}
+
+.hackathon-error__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+/* ---- Full view ------------------------------------------------------- */
+
+/* The image viewer. It sits above the whole page, the board showing through,
+   so the picture is the only bright thing on screen. */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 3vw, 32px);
+  background: rgba(6, 8, 10, 0.95);
+  backdrop-filter: blur(6px);
+  animation: lightbox-in 160ms ease-out;
+}
+
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.lightbox__bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px clamp(14px, 3vw, 28px);
+}
+
+.lightbox__count {
+  padding: 5px 9px;
+  border: 2px solid var(--color-line-strong);
+  background: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-signal);
+}
+
+.lightbox__control {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--color-line-strong);
+  border-radius: 0;
+  background: var(--color-card);
+  color: var(--color-chalk);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.lightbox__control:hover {
+  border-color: var(--color-signal);
+  background: var(--color-signal);
+  color: var(--color-ink);
+}
+
+.lightbox__control:focus-visible {
+  outline: 3px solid var(--color-signal);
+  outline-offset: 3px;
+}
+
+.lightbox__control:disabled,
+.lightbox__control:disabled:hover {
+  border-color: var(--color-line);
+  background: var(--color-ink-soft);
+  color: var(--color-muted);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.lightbox__control--prev,
+.lightbox__control--next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.lightbox__control--prev {
+  left: clamp(10px, 2vw, 24px);
+}
+
+.lightbox__control--next {
+  right: clamp(10px, 2vw, 24px);
+}
+
+.lightbox__stage {
+  width: min(1280px, 100%);
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Every image sits in one row and the track shifts by a whole slide. One
+   transform change, so the browser animates it on the compositor. */
+.lightbox__track {
+  display: flex;
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.lightbox__slide {
+  display: grid;
+  flex: 0 0 100%;
+  place-items: center;
+  min-width: 0;
+}
+
+.lightbox__slide img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100svh - 150px);
+  border: 2px solid var(--color-line-strong);
+  border-radius: 0;
+  background: var(--color-ink);
+  box-shadow: 0 0 0 6px rgba(41, 240, 255, 0.12);
+}
+
+/* The public calendar's cards. The whole card is one link, so the hover lift is
+   the only affordance and nothing inside competes for the click. */
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 18px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event-card {
+  display: flex;
+}
+
+.event-card__link {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: 2px solid var(--color-line);
+  background: var(--color-card);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.event-card__link:hover {
+  border-color: var(--color-signal);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 #000;
+}
+
+.event-card__link:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.event-card__media {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-bottom: 2px solid var(--color-line);
+  background:
+    linear-gradient(135deg, rgba(41, 240, 255, 0.12), transparent 62%),
+    var(--color-ink);
+}
+
+.event-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* No poster yet: the title's first letter stands in, so the grid keeps its
+   rhythm instead of showing a row of empty holes. */
+.event-card__monogram {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: clamp(48px, 8vw, 72px);
+  line-height: 1;
+  color: var(--color-signal);
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55);
+}
+
+.event-card__phase {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 7px;
+  border: 2px solid #000;
+  background: var(--color-signal);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.event-card[data-phase='past'] .event-card__phase {
+  background: var(--color-line-strong);
+  color: var(--color-chalk);
+}
+
+.event-card[data-phase='past'] .event-card__media img {
+  filter: grayscale(1);
+  opacity: 0.72;
+}
+
+.event-card__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+  padding: 16px;
+}
+
+.event-card__when {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-signal);
+}
+
+.event-card[data-phase='past'] .event-card__when {
+  color: var(--color-muted);
+}
+
+.event-card__title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.05;
+  text-transform: uppercase;
+  color: var(--color-chalk);
+  overflow-wrap: anywhere;
+}
+
+.event-card__place {
+  font-size: 13px;
+  color: var(--color-body);
+}
+
+.event-card__description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.event-card__sponsors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.event-card__sponsor {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid var(--color-line-strong);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--color-body);
+}
+
+.event-card__sponsor-tier {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-signal);
+}
+
+.event-card__sponsor--more {
+  color: var(--color-muted);
+}
+
+/* Pushed to the foot so cards of uneven copy still line up. */
+.event-card__cta {
+  margin-top: auto;
+  padding-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-signal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightbox {
+    animation: none;
+  }
+
+  .event-card__link:hover {
+    transform: none;
+  }
+
+  .lightbox__track {
+    transition: none;
+  }
+
+  .hackathon-gallery__frame:hover {
+    transform: none;
+  }
+
+  .hackathon-gallery__open img {
+    transition: none;
+  }
+
+  .hackathon-gallery__open:hover img {
+    transform: none;
+  }
+}

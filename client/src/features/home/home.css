@@ -3,30 +3,52 @@
   background: var(--color-paper);
 }
 
-/* One dark stage holds the header and the hero, so the light appears to fall
-   from above the page rather than from inside a box. The gradient is the
-   fallback when WebGL2 is unavailable, and it stays visible at the edges where
-   the canvas fades out. */
+/* The dark board the header and greeting sit on. A drafting grid, the beam,
+   and one hazard strip at the bottom edge. */
 .home-stage {
   position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: clamp(460px, 78svh, 720px);
-  background:
-    radial-gradient(
-      48% 34% at 50% -10%,
-      rgba(143, 240, 255, 0.22) 0%,
-      rgba(143, 240, 255, 0.07) 44%,
-      transparent 76%
-    ),
-    radial-gradient(
-      72% 92% at 50% 0%,
-      #0b3b52 0%,
-      #0a2b3d 34%,
-      var(--color-ink) 74%
-    );
-  color: #e4fafd;
+  min-height: clamp(460px, 76svh, 700px);
+  border-bottom: 2px solid var(--color-line);
+  /* The fallback glow for the beam, and the only light on the board when
+     WebGL2 is unavailable. */
+  background: radial-gradient(
+    60% 46% at 50% -6%,
+    rgba(41, 240, 255, 0.12) 0%,
+    rgba(41, 240, 255, 0.03) 46%,
+    transparent 76%
+  );
+  background-color: var(--color-ink);
+  color: var(--color-chalk);
+}
+
+.home-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(41, 240, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(41, 240, 255, 0.05) 1px, transparent 1px);
+  background-size: 34px 34px;
+  pointer-events: none;
+}
+
+.home-stage::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 10px;
+  border-top: 2px solid #000;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-signal) 0 14px,
+    var(--color-ink) 14px 28px
+  );
 }
 
 .home-stage__rays {
@@ -41,17 +63,25 @@
   width: 100%;
   max-width: 1040px;
   margin: auto auto 0;
-  padding: clamp(48px, 8vh, 96px) clamp(20px, 4vw, 32px)
-    clamp(48px, 8vh, 84px);
+  padding: clamp(48px, 8vh, 92px) clamp(20px, 4vw, 32px)
+    clamp(48px, 8vh, 80px);
 }
 
 .home-eyebrow {
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--color-signal-deep);
+  color: var(--color-signal);
+}
+
+.home-eyebrow::before {
+  content: '[ ';
+}
+
+.home-eyebrow::after {
+  content: ' ]';
 }
 
 .home-eyebrow--beam {
@@ -59,28 +89,75 @@
 }
 
 .home-greeting {
-  margin-top: 14px;
-  max-width: 22ch;
-  font-size: clamp(34px, 6vw, 60px);
-  line-height: 1.02;
-  letter-spacing: -0.035em;
-  color: #ffffff;
+  margin-top: 16px;
+  max-width: 20ch;
+  font-size: clamp(38px, 7vw, 78px);
+  line-height: 0.94;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--color-chalk);
+  text-shadow: 5px 5px 0 rgba(41, 240, 255, 0.22);
+  overflow-wrap: anywhere;
   text-wrap: balance;
 }
 
 .home-lede {
-  margin-top: 16px;
-  max-width: 54ch;
-  font-size: clamp(16px, 1.6vw, 18px);
-  color: rgba(228, 250, 253, 0.82);
+  margin-top: 20px;
+  max-width: 52ch;
+  font-size: clamp(15px, 1.5vw, 17px);
+  line-height: 1.6;
+  color: rgba(211, 232, 238, 0.82);
 }
 
-/* Daylight: the product explanation below the beam. */
+/* The product explanation below the board. */
 .home-main {
   width: 100%;
   max-width: 1040px;
   margin: 0 auto;
   padding: clamp(40px, 6vw, 72px) clamp(20px, 4vw, 32px) 96px;
+}
+
+/* The calendar comes after the product explanation: the page says what this is
+   and how it works, then shows what is actually on. */
+.home-calendar {
+  margin-top: clamp(44px, 6vw, 80px);
+}
+
+.home-calendar__lede {
+  margin-top: 10px;
+  max-width: 56ch;
+  color: var(--color-muted);
+}
+
+.home-calendar__note,
+.home-calendar__empty {
+  margin-top: 22px;
+  padding: 18px;
+  border: 2px dashed var(--color-line-strong);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-muted);
+}
+
+.home-calendar__error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 18px;
+  border: 2px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-body);
+}
+
+.home-calendar__error-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-danger);
 }
 
 .home-columns {
@@ -92,8 +169,9 @@
 
 .home-section__title {
   margin-top: 12px;
-  font-size: clamp(22px, 2.6vw, 28px);
-  letter-spacing: -0.025em;
+  font-size: clamp(22px, 2.6vw, 30px);
+  text-transform: uppercase;
+  color: var(--color-chalk);
 }
 
 .home-about p {
@@ -109,7 +187,7 @@
 .home-steps {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 12px;
   margin: 22px 0 0;
   padding: 0;
   list-style: none;
@@ -119,26 +197,38 @@
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
   gap: 14px;
-  padding-top: 18px;
-  border-top: 1px solid var(--color-line);
+  padding: 16px 18px;
+  border: 2px solid var(--color-line);
+  background: var(--color-card);
+  transition:
+    border-color 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 
-.home-step:first-child {
-  padding-top: 0;
-  border-top: 0;
+.home-step:hover {
+  border-color: var(--color-signal);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 #000;
 }
 
 .home-step__number {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--color-signal);
   font-family: var(--font-mono);
   font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  color: var(--color-signal-deep);
+  font-weight: 700;
+  color: var(--color-signal);
 }
 
 .home-step__title {
-  font-size: 16px;
+  font-family: var(--font-body);
+  font-size: 15.5px;
   font-weight: 600;
+  color: var(--color-chalk);
 }
 
 .home-step__body {
@@ -149,8 +239,10 @@
 }
 
 .home-how__note {
-  margin-top: 24px;
-  font-size: 13px;
+  margin-top: 22px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
   color: var(--color-muted);
 }
 
@@ -160,7 +252,7 @@
   }
 
   .home-stage {
-    min-height: 460px;
+    min-height: 440px;
   }
 }
 

@@ -1,0 +1,109 @@
+/* The queue hangs off the top right corner of the screen, above every page and
+   below the native dialogs, which live in the browser's top layer. */
+.message-stack {
+  position: fixed;
+  top: clamp(12px, 2vw, 20px);
+  right: clamp(12px, 2vw, 20px);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(380px, calc(100vw - 24px));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* The column is just a container: only the cards themselves are clickable,
+     so a message never blocks a button underneath the empty space beside it. */
+  pointer-events: none;
+}
+
+/* A message is a stamped slip: hard edge, black offset, and a tone bar down the
+   left so success and failure are told apart without reading. */
+.message-card {
+  --message-tone: var(--color-signal);
+
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 38px 12px 14px;
+  border: 2px solid var(--color-line-strong);
+  border-left: 8px solid var(--message-tone);
+  border-radius: 0;
+  background: var(--color-card);
+  box-shadow: 6px 6px 0 #000;
+  pointer-events: auto;
+}
+
+.message-card[data-tone='success'] {
+  --message-tone: var(--color-success);
+}
+
+.message-card[data-tone='error'] {
+  --message-tone: var(--color-danger);
+}
+
+.message-card__mark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  background: var(--message-tone);
+  color: var(--color-ink);
+}
+
+.message-card__mark svg {
+  width: 14px;
+  height: 14px;
+}
+
+.message-card__text {
+  min-width: 0;
+}
+
+.message-card__title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-chalk);
+}
+
+.message-card__body {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  color: var(--color-body);
+}
+
+.message-card__close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.message-card__close:hover {
+  border-color: var(--color-line-strong);
+  color: var(--color-chalk);
+}
+
+.message-card__close svg {
+  width: 13px;
+  height: 13px;
+}

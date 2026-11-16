@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { AppNav } from '../../components/AppNav';
+import { LightRays } from '../../components/LightRays';
 import { EventLedger } from './EventLedger';
 import { countLabel } from './event-format';
 import type { AdminEvent } from './events-api';
@@ -31,6 +32,32 @@ export function AdminDashboardPage() {
   return (
     <div className="admin">
       <section className="admin-stage">
+        <div className="admin-stage__rays">
+          <LightRays
+            raysOrigin="top-center"
+            raysColor="#29f0ff"
+            raysSpeed={0.5}
+            lightSpread={0.55}
+            rayLength={2.6}
+            rayDensity={1}
+            raySharpness={0.5}
+            glow={0.4}
+            haze={0.25}
+            atmosphere={0.55}
+            intensity={0.55}
+            fadeDistance={1.1}
+            saturation={1.05}
+            followMouse
+            mouseInfluence={0.06}
+            cursorShadow
+            clickPulse={false}
+            noiseAmount={0.02}
+            distortion={0.05}
+            opacity={0.45}
+            maxDevicePixelRatio={1.5}
+          />
+        </div>
+
         <AppNav />
         <div className="admin-stage__inner">
           <div>

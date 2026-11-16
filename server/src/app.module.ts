@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
 import { ArcjetModule, detectBot, fixedWindow, shield } from '@arcjet/nest';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -10,6 +11,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './auth/session/jwt-auth.guard.js';
 import { SessionModule } from './auth/session/session.module.js';
 import { validateEnv } from './config/env.validation.js';
+import { readRedisConnection } from './config/redis.config.js';
 import { EventsModule } from './events/events.module.js';
 import { ObserveModule } from './observe.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -23,6 +25,15 @@ import { UploadsModule } from './uploads/uploads.module.js';
       isGlobal: true,
       cache: true,
       validate: validateEnv,
+    }),
+    // Redis backs the mail queue and nothing else. Registering the shared
+    // connection once here means the worker and the producer cannot drift,
+    // and `MailModule` only declares the queue it owns.
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: readRedisConnection(config),
+      }),
     }),
     // Global Arcjet client. Base rules below run on every protect() call.
     ArcjetModule.forRootAsync({

@@ -2,15 +2,17 @@ import { Link } from 'react-router';
 import { AppNav } from '../../components/AppNav';
 import { EventForm } from './EventForm';
 import { ADMIN_DASHBOARD_PATH } from './paths';
+import { useReturnAfterSave } from './use-return-after-save';
 import './admin.css';
 
 /**
  * Opening an event is its own screen rather than a sheet beside the ledger:
  * the form is the whole job here, and the season is one quiet link away.
- * Saving leaves the form in place so the result, including a sponsor that
- * failed to attach, is read before leaving.
+ * A clean save returns to the screen this one was opened from.
  */
 export function CreateHackathonPage() {
+  const returnAfterSave = useReturnAfterSave();
+
   return (
     <div className="admin">
       <section className="admin-stage">
@@ -43,6 +45,7 @@ export function CreateHackathonPage() {
               Event details
             </h2>
             <EventForm
+              onSaved={returnAfterSave}
               successAction={
                 <Link className="text-link" to={ADMIN_DASHBOARD_PATH}>
                   View the season

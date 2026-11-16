@@ -9,7 +9,14 @@ import {
 } from '../features/auth/guards';
 import { AdminDashboardRoute } from '../features/admin/AdminDashboardRoute';
 import { CreateHackathonRoute } from '../features/admin/CreateHackathonRoute';
-import { ADMIN_DASHBOARD_PATH, CREATE_HACKATHON_PATH } from '../features/admin/paths';
+import { EditHackathonRoute } from '../features/admin/EditHackathonRoute';
+import {
+  ADMIN_DASHBOARD_PATH,
+  CREATE_HACKATHON_PATH,
+  EDIT_HACKATHON_PATH,
+} from '../features/admin/paths';
+import { HACKATHON_PATH } from '../features/hackathon/paths';
+import { HackathonDetailPage } from '../features/hackathon/HackathonDetailPage';
 import { HomePage } from '../features/home/HomePage';
 
 export const router = createBrowserRouter([
@@ -20,6 +27,10 @@ export const router = createBrowserRouter([
         <HomePage />
       </RequireSession>
     ),
+  },
+  {
+    path: HACKATHON_PATH,
+    element: <HackathonDetailPage />,
   },
   {
     path: ADMIN_DASHBOARD_PATH,
@@ -34,6 +45,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAdmin>
         <CreateHackathonRoute />
+      </RequireAdmin>
+    ),
+  },
+  {
+    path: EDIT_HACKATHON_PATH,
+    element: (
+      <RequireAdmin>
+        <EditHackathonRoute />
       </RequireAdmin>
     ),
   },

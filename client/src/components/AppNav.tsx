@@ -50,15 +50,25 @@ export function AppNav() {
         </nav>
 
         <div className="app-nav__account">
-          {user !== null ? <span className="app-nav__user">{user.name}</span> : null}
-          <button
-            className="button button--quiet button--inverse"
-            type="button"
-            disabled={signOut.isPending}
-            onClick={handleSignOut}
-          >
-            {signOut.isPending ? 'Signing out' : 'Sign out'}
-          </button>
+          {user !== null ? (
+            <>
+              <span className="app-nav__user">{user.name}</span>
+              <button
+                className="button button--quiet button--inverse"
+                type="button"
+                disabled={signOut.isPending}
+                onClick={handleSignOut}
+              >
+                {signOut.isPending ? 'Signing out' : 'Sign out'}
+              </button>
+            </>
+          ) : (
+            // Public pages use this bar too; a sign out button with no session
+            // would be a dead end for a visitor who is not signed in.
+            <Link className="button button--quiet button--inverse" to="/login">
+              Sign in
+            </Link>
+          )}
         </div>
       </div>
 

@@ -1,12 +1,12 @@
 import { useId, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { ImagePlusIcon, XIcon } from 'lucide-react';
+import { apiAssetUrl } from '../../lib/api-config';
 import {
   EVENT_IMAGE_ACCEPT,
   EVENT_IMAGE_TYPES,
   MAX_EVENT_IMAGES,
   MAX_EVENT_IMAGE_BYTES,
-  eventImageSrc,
 } from './events-api';
 
 type EventImageFieldProps = {
@@ -128,7 +128,7 @@ export function EventImageField({
             <li className="event-image" key={url}>
               <img
                 className="event-image__img"
-                src={eventImageSrc(url)}
+                src={apiAssetUrl(url)}
                 alt={`Event image ${index + 1}`}
                 loading="lazy"
                 decoding="async"

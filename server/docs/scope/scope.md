@@ -14,6 +14,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | A | App scaffold | Foundation | existing |
 | B | Arcjet protection | Foundation | existing |
 | C | Prisma data layer | Foundation | existing |
+| D | Mail queue & SMTP | Foundation | existing |
 | 1 | Authentication & roles | Slice 1 | in-progress |
 | 2 | Hackathon events & sponsors | Slice 2 | in-progress |
 
@@ -34,6 +35,11 @@ Prisma 7 with the `PrismaPg` driver adapter, a global `PrismaModule`, and the ge
 **Done when:** services can inject `PrismaService` and query PostgreSQL.
 Code in `src/prisma/`
 
+### D. Mail queue & SMTP · existing
+Verification and reset mail is stored on a BullMQ queue in Redis and sent by a worker over SMTP with nodemailer, with a log sink when no credentials are configured.
+**Done when:** a queued job is rendered and delivered, and a failed send is retried.
+Code in `src/mail/`, spec [0004](specs/0004-async-email-delivery.md)
+
 ## Slice 1: Identity
 
 ### 1. Authentication & roles · in-progress
@@ -43,6 +49,7 @@ Google sign in and email plus password sign in, sessions, email verification, pa
 - [ ] Build it: `/develop authentication & roles`
    - [x] Schema, two migrations, generated client (AC-11)
    - [x] Auth config, mail service, module wiring, guard order (AC-1..6, 10, 13, 17)
+   - [x] Async delivery of verification and reset mail (spec 0004, AC-3, AC-4)
    - [x] Public and admin routes (AC-7, 8)
    - [x] Admin seed script (AC-9)
    - [x] Access and refresh tokens for app routes (spec 0002, AC-1..10)
@@ -73,11 +80,18 @@ events without an account.
      sponsor comboboxes (AC-11)
    - [x] Event images: `imageUrls` column, multer upload endpoint, `bucket/event_images` served
      at `/bucket` (AC-12); the create form uploads on pick and shows removable thumbnails
-   - [ ] Client: public event list and event page
+   - [x] Event header image: `backgroundUrl` column, single-file upload endpoint, shown behind
+     the public hero (AC-13)
+   - [x] Event edit as `PUT` with a required full body, `PATCH` kept for the publish toggle
+     (AC-14)
+   - [x] Client: public event list and event page
+   - [x] Participant registration: one row per account and event, Register on the public page,
+     and a per-event admin registrations drawer fetched on open (spec 0005)
 - [ ] Verify it: `/check verify hackathon events & sponsors`
 - [ ] Test it: `/test hackathon events & sponsors`
 
-Spec 0003 in `docs/specs/0003-hackathon-events-and-sponsors.md` · code in `src/events/`,
+Spec 0003 in `docs/specs/0003-hackathon-events-and-sponsors.md` · registrations (amends 0003) in
+`docs/specs/0005-event-registrations.md` · code in `src/events/`,
 `src/admin/admin-events.controller.ts`, `prisma/schema.prisma`
 
 ## Deferred

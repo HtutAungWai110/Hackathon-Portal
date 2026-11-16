@@ -7,26 +7,29 @@
 
 /* Design tokens. These are the single source of truth for both the Tailwind
    utilities and the authored CSS: `bg-ink`, `text-muted`, `font-display`, and
-   `var(--color-ink)` all read the same value. */
+   `var(--color-ink)` all read the same value.
+
+   The identity is neo-brutalist: a blown-out near-black board, hard 2px edges,
+   no rounded corners, offset shadows instead of blur, and one electric cyan
+   doing the pointing. Acid lime means live, alarm pink means destructive. */
 @theme {
-  /* Blue cyan. `ink` is the dark stage the light falls onto, `signal` is the
-     beam, `signal-deep` is the same hue dark enough to read on paper. */
-  --color-ink: #04141f;
-  --color-ink-soft: #082333;
-  --color-paper: #eef5f8;
-  --color-card: #ffffff;
-  --color-line: #d5e3ea;
-  --color-line-strong: #b6cbd6;
-  --color-body: #0a2130;
-  --color-muted: #4e6b7b;
-  --color-signal: #22d3ee;
-  --color-signal-deep: #0b7285;
-  --color-signal-soft: #e4faff;
-  --color-focus: #0b7285;
-  --color-danger: #b42318;
-  --color-danger-soft: #fdf0ee;
-  --color-success: #0f6b4f;
-  --color-success-soft: #edf7f2;
+  --color-ink: #06080a;
+  --color-ink-soft: #0b1115;
+  --color-paper: #06080a;
+  --color-card: #0e1419;
+  --color-line: #1e2a31;
+  --color-line-strong: #34464f;
+  --color-body: #d3e8ee;
+  --color-chalk: #eefcff;
+  --color-muted: #8aa3ad;
+  --color-signal: #29f0ff;
+  --color-signal-deep: #3fd9ea;
+  --color-signal-soft: #0b2b33;
+  --color-focus: #29f0ff;
+  --color-danger: #ff4d7a;
+  --color-danger-soft: #2a0d16;
+  --color-success: #c8ff4d;
+  --color-success-soft: #1b2410;
 
   /* shadcn's semantic names, mapped onto the palette above so generated
      primitives inherit this identity instead of shipping a second one. */
@@ -34,16 +37,16 @@
   --color-foreground: var(--color-body);
   --color-popover: var(--color-card);
   --color-popover-foreground: var(--color-body);
-  --color-accent: var(--color-signal-soft);
+  --color-accent: var(--color-signal);
   --color-accent-foreground: var(--color-ink);
   --color-muted-foreground: var(--color-muted);
   --color-border: var(--color-line);
   --color-input: var(--color-line-strong);
-  --color-ring: var(--color-focus);
+  --color-ring: var(--color-signal);
 
-  --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
-  --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --font-display: 'Archivo Black', 'Arial Black', system-ui, sans-serif;
+  --font-body: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
 }
 
 @layer base {
@@ -52,12 +55,12 @@
     font-size: 16px;
     line-height: 1.55;
     color: var(--color-body);
-    background: var(--color-paper);
+    background: var(--color-ink);
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color-scheme: light;
+    color-scheme: dark;
   }
 
   html,
@@ -68,6 +71,13 @@
 
   body {
     margin: 0;
+    /* The board the whole system is pinned to: a faint cyan drafting grid. */
+    background-color: var(--color-ink);
+    background-image:
+      linear-gradient(rgba(41, 240, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(41, 240, 255, 0.035) 1px, transparent 1px);
+    background-size: 34px 34px;
+    background-attachment: fixed;
   }
 
   /* Tailwind v4 leaves `border` colour as currentColor. shadcn primitives
@@ -83,9 +93,9 @@
   h3 {
     margin: 0;
     font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1.15;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1.02;
   }
 
   p {
@@ -101,10 +111,15 @@
     font: inherit;
   }
 
+  ::selection {
+    background: var(--color-signal);
+    color: var(--color-ink);
+  }
+
   :focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline: 3px solid var(--color-focus);
+    outline-offset: 3px;
+    border-radius: 0;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -127,25 +142,38 @@
     justify-content: center;
     gap: 10px;
     min-height: 46px;
-    padding: 0 20px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 15px;
-    cursor: pointer;
+    padding: 0 22px;
+    border: 2px solid var(--color-signal);
+    border-radius: 0;
+    background: var(--color-signal);
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    text-decoration: none;
+    box-shadow: 4px 4px 0 #000;
     transition:
-      background-color 140ms ease,
-      border-color 140ms ease,
-      transform 140ms ease;
+      transform 120ms ease,
+      box-shadow 120ms ease,
+      background-color 120ms ease,
+      color 120ms ease;
   }
 
   .button:disabled {
     cursor: progress;
-    opacity: 0.65;
+    opacity: 0.6;
+  }
+
+  .button:hover:not(:disabled) {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 #000;
   }
 
   .button:active:not(:disabled) {
-    transform: translateY(1px);
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 #000;
   }
 
   .button--primary {
@@ -154,46 +182,58 @@
   }
 
   .button--primary:hover:not(:disabled) {
-    background: #0fc3dd;
+    background: #6ff7ff;
   }
 
   .button--ghost {
-    background: var(--color-card);
-    border-color: var(--color-line-strong);
-    color: var(--color-ink);
+    background: transparent;
+    border-color: var(--color-signal);
+    color: var(--color-signal);
   }
 
   .button--ghost:hover:not(:disabled) {
-    border-color: var(--color-ink);
+    background: var(--color-signal);
+    color: var(--color-ink);
   }
 
   .button--quiet {
-    min-height: 38px;
+    min-height: 36px;
     padding: 0 14px;
+    border-width: 2px;
     background: transparent;
     border-color: var(--color-line-strong);
-    font-size: 14px;
-    font-weight: 500;
+    color: var(--color-chalk);
+    font-size: 11.5px;
   }
 
   .button--quiet:hover:not(:disabled) {
-    border-color: var(--color-ink);
+    border-color: var(--color-signal);
+    background: transparent;
+    color: var(--color-signal);
   }
 
-  /* For the quiet button when it sits on the dark stage or header. */
+  /* The one irreversible action: pink is reserved for it. */
+  .button--danger {
+    border-color: var(--color-danger);
+    background: var(--color-danger);
+    color: var(--color-ink);
+  }
+
+  .button--danger:hover:not(:disabled) {
+    background: #ff7397;
+    border-color: #ff7397;
+  }
+
+  /* For a quiet button sitting on the dark stage or header. */
   .button--inverse {
-    border-color: rgba(228, 250, 255, 0.35);
-    color: #e4faff;
+    border-color: var(--color-line-strong);
+    color: var(--color-chalk);
   }
 
   .button--inverse:hover:not(:disabled) {
     border-color: var(--color-signal);
-    color: #ffffff;
-  }
-
-  /* Deep teal on a beam-lit stage is too low contrast, so the ring goes cyan. */
-  .button--inverse:focus-visible {
-    outline-color: var(--color-signal);
+    background: transparent;
+    color: var(--color-signal);
   }
 
   .button--block {
@@ -202,31 +242,33 @@
 
   .alert {
     margin: 0;
-    padding: 12px 14px;
-    border-left: 3px solid var(--color-danger);
-    border-radius: 6px;
+    padding: 14px 16px;
+    border: 2px solid var(--color-danger);
+    border-left-width: 6px;
+    border-radius: 0;
     background: var(--color-danger-soft);
-    color: var(--color-danger);
+    color: #ffc2d1;
     font-size: 14px;
   }
 
   .alert--success {
-    border-left-color: var(--color-success);
+    border-color: var(--color-success);
     background: var(--color-success-soft);
     color: var(--color-success);
   }
 
   .text-link {
-    color: var(--color-ink);
+    color: var(--color-signal);
     text-decoration: underline;
-    text-decoration-color: var(--color-signal-deep);
     text-decoration-thickness: 2px;
     text-underline-offset: 3px;
-    font-weight: 500;
+    font-weight: 600;
   }
 
   .text-link:hover {
-    text-decoration-color: var(--color-ink);
+    background: var(--color-signal);
+    color: var(--color-ink);
+    text-decoration: none;
   }
 
   .visually-hidden {

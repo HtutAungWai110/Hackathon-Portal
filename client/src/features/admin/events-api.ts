@@ -1,5 +1,4 @@
 import { apiFetch } from '../../lib/api-client';
-import { API_URL } from '../../lib/api-config';
 
 export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'CANCELLED';
 export type SponsorTier = 'MAIN' | 'CO_SPONSOR';
@@ -50,11 +49,15 @@ export type AdminEvent = {
   location: string | null;
   /** Public paths such as `/bucket/event_images/<file>`, in stored order. */
   imageUrls: string[];
+  /** The one wide image behind the event header, or null for a plain header. */
+  backgroundUrl: string | null;
   status: EventStatus;
   createdById: string | null;
   createdAt: string;
   updatedAt: string;
   sponsors: EventSponsor[];
+  /** How many people hold a place, so a collapsed row can say so. */
+  registrationCount: number;
 };
 
 /** The subset of the server's `CreateEventDto` the form fills in. */
@@ -67,6 +70,8 @@ export type CreateEventPayload = {
   location?: string;
   /** URLs returned by `uploadEventImages`, in the order they were attached. */
   imageUrls?: string[];
+  /** The URL returned by `uploadEventBackground`. */
+  backgroundUrl?: string;
   status?: EventStatus;
 };
 
@@ -74,6 +79,23 @@ export type CreateEventPayload = {
 export type Company = SponsorCompany & {
   createdAt: string;
   updatedAt: string;
+};
+
+/**
+ * The whole event, as the edit form holds it. The form saves with PUT, so every
+ * column the editor owns is present and an empty optional one is `null`, not
+ * omitted. Sponsors travel through their own routes.
+ */
+export type ReplaceEventPayload = {
+  title: string;
+  description: string;
+  startsAt: string;
+  endsAt: string;
+  registrationDeadline: string | null;
+  location: string | null;
+  imageUrls: string[];
+  backgroundUrl: string | null;
+  status: EventStatus;
 };
 
 export type SponsorSelection = {
@@ -101,8 +123,23 @@ export type CreateEventResult = {
   failedSponsors: FailedSponsor[];
 };
 
+/** One participant holding a place, as the console lists them. */
+export type AdminRegistration = {
+  id: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  };
+};
+
 export const adminEventKeys = {
   all: ['admin', 'events'] as const,
+  detail: (id: string) => ['admin', 'events', id] as const,
+  registrations: (id: string) =>
+    ['admin', 'events', id, 'registrations'] as const,
 };
 
 export const adminCompanyKeys = {
@@ -111,6 +148,14 @@ export const adminCompanyKeys = {
 
 export function listAdminEvents(): Promise<AdminEvent[]> {
   return apiFetch<AdminEvent[]>('/admin/events');
+}
+
+/**
+ * One event whatever its status. The public page uses this for a signed in
+ * admin so a draft can be previewed before it is published.
+ */
+export function getAdminEvent(id: string): Promise<AdminEvent> {
+  return apiFetch<AdminEvent>(`/admin/events/${encodeURIComponent(id)}`);
 }
 
 export function listAdminCompanies(): Promise<Company[]> {
@@ -136,14 +181,16 @@ export function uploadEventImages(
 }
 
 /**
- * An absolute URL for an image the API serves. Uploaded files are stored as
- * `/bucket/...`, which is the API's path, not the SPA's.
+ * Uploads the event header's one image into the same bucket. A separate route
+ * from the gallery because a background is replaced rather than accumulated.
  */
-export function eventImageSrc(url: string): string {
-  if (/^(?:https?:|data:|blob:)/i.test(url)) {
-    return url;
-  }
-  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+export function uploadEventBackground(file: File): Promise<{ url: string }> {
+  const body = new FormData();
+  body.append('image', file);
+  return apiFetch<{ url: string }>('/admin/uploads/event-background', {
+    method: 'POST',
+    body,
+  });
 }
 
 export function createAdminEvent(
@@ -173,4 +220,57 @@ export function publishAdminEvent(id: string): Promise<AdminEvent> {
     method: 'PATCH',
     body: JSON.stringify({ status: 'PUBLISHED' }),
   });
+}
+
+/** The form's save: the body states the whole event, so the route is PUT. */
+export function replaceAdminEvent(
+  id: string,
+  input: ReplaceEventPayload,
+): Promise<AdminEvent> {
+  return apiFetch<AdminEvent>(`/admin/events/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateEventSponsorTier(
+  eventId: string,
+  sponsorId: string,
+  tier: SponsorTier,
+): Promise<EventSponsor> {
+  return apiFetch<EventSponsor>(
+    `/admin/events/${encodeURIComponent(eventId)}/sponsors/${encodeURIComponent(sponsorId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ tier }),
+    },
+  );
+}
+
+export function removeEventSponsor(
+  eventId: string,
+  sponsorId: string,
+): Promise<void> {
+  return apiFetch<void>(
+    `/admin/events/${encodeURIComponent(eventId)}/sponsors/${encodeURIComponent(sponsorId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function deleteAdminEvent(id: string): Promise<void> {
+  return apiFetch<void>(`/admin/events/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * The people who hold a place at one event. It is its own request because the
+ * console fetches it only when a row expands, not with every event.
+ */
+export function listEventRegistrations(
+  eventId: string,
+): Promise<AdminRegistration[]> {
+  return apiFetch<AdminRegistration[]>(
+    `/admin/events/${encodeURIComponent(eventId)}/registrations`,
+  );
 }

@@ -54,6 +54,16 @@ const EVENT_BODY = {
   endsAt: '2026-12-03T18:00:00.000Z',
 };
 
+/** PUT states the whole event, so the gaps that PATCH may omit are spelled out. */
+const REPLACE_BODY = {
+  ...EVENT_BODY,
+  registrationDeadline: null,
+  location: null,
+  imageUrls: [],
+  backgroundUrl: null,
+  status: 'PUBLISHED',
+};
+
 const SPONSOR_BODY = {
   company: { name: 'Acme' },
   tier: 'MAIN',
@@ -67,10 +77,14 @@ type EventsMock = {
   findOne: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
+  replace: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
   addSponsor: ReturnType<typeof vi.fn>;
   updateSponsor: ReturnType<typeof vi.fn>;
   removeSponsor: ReturnType<typeof vi.fn>;
+  listRegistrations: ReturnType<typeof vi.fn>;
+  registrationStatus: ReturnType<typeof vi.fn>;
+  register: ReturnType<typeof vi.fn>;
 };
 
 describe('AdminEventsController (HTTP)', () => {
@@ -85,12 +99,19 @@ describe('AdminEventsController (HTTP)', () => {
       listAll: vi.fn().mockResolvedValue([]),
       listCompanies: vi.fn().mockResolvedValue([]),
       findOne: vi.fn().mockResolvedValue({ id: 'event_1' }),
+      findOneForAdmin: vi.fn().mockResolvedValue({ id: 'event_1', status: 'DRAFT' }),
       create: vi.fn().mockResolvedValue({ id: 'event_1' }),
       update: vi.fn().mockResolvedValue({ id: 'event_1' }),
+      replace: vi.fn().mockResolvedValue({ id: 'event_1' }),
       remove: vi.fn().mockResolvedValue(undefined),
       addSponsor: vi.fn().mockResolvedValue({ id: 'sponsor_1' }),
       updateSponsor: vi.fn().mockResolvedValue({ id: 'sponsor_1' }),
       removeSponsor: vi.fn().mockResolvedValue(undefined),
+      listRegistrations: vi.fn().mockResolvedValue([]),
+      registrationStatus: vi
+        .fn()
+        .mockResolvedValue({ registered: false, registeredAt: null, open: true }),
+      register: vi.fn().mockResolvedValue({ id: 'reg_1' }),
     };
     prisma = { user: { findUnique: vi.fn().mockResolvedValue(userRecord('admin')) } };
 
@@ -165,9 +186,16 @@ describe('AdminEventsController (HTTP)', () => {
           .get('/admin/companies')
           .set('Authorization', `Bearer ${token}`),
         request(app.getHttpServer())
+          .get('/admin/events/event_1')
+          .set('Authorization', `Bearer ${token}`),
+        request(app.getHttpServer())
           .patch('/admin/events/event_1')
           .set('Authorization', `Bearer ${token}`)
           .send({ title: 'Renamed' }),
+        request(app.getHttpServer())
+          .put('/admin/events/event_1')
+          .set('Authorization', `Bearer ${token}`)
+          .send(REPLACE_BODY),
         request(app.getHttpServer())
           .delete('/admin/events/event_1')
           .set('Authorization', `Bearer ${token}`),
@@ -183,13 +211,20 @@ describe('AdminEventsController (HTTP)', () => {
           .delete('/admin/events/event_1/sponsors/sponsor_1')
           .set('Authorization', `Bearer ${token}`),
         request(app.getHttpServer())
+          .get('/admin/events/event_1/registrations')
+          .set('Authorization', `Bearer ${token}`),
+        request(app.getHttpServer())
           .post('/admin/uploads/event-images')
           .set('Authorization', `Bearer ${token}`)
           .attach('images', Buffer.from('not really a png'), 'photo.png'),
+        request(app.getHttpServer())
+          .post('/admin/uploads/event-background')
+          .set('Authorization', `Bearer ${token}`)
+          .attach('image', Buffer.from('not really a png'), 'wide.png'),
       ]);
 
       expect(responses.map((response) => response.status)).toEqual([
-        403, 403, 403, 403, 403, 403, 403, 403,
+        403, 403, 403, 403, 403, 403, 403, 403, 403, 403, 403, 403,
       ]);
     });
   });
@@ -205,6 +240,18 @@ describe('AdminEventsController (HTTP)', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
       expect(events.listAll).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads one event by id for the console, drafts included', async () => {
+      const token = await tokenFor('admin');
+
+      const response = await request(app.getHttpServer())
+        .get('/admin/events/event_1')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ id: 'event_1', status: 'DRAFT' });
+      expect(events.findOneForAdmin).toHaveBeenCalledWith('event_1');
     });
 
     it('creates an event and records the admin who created it', async () => {
@@ -264,6 +311,49 @@ describe('AdminEventsController (HTTP)', () => {
       });
     });
 
+    it('replaces an event through PUT', async () => {
+      const token = await tokenFor('admin');
+
+      const response = await request(app.getHttpServer())
+        .put('/admin/events/event_1')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ ...REPLACE_BODY, backgroundUrl: '/bucket/event_images/wide.jpg' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ id: 'event_1' });
+      expect(events.replace).toHaveBeenCalledWith('event_1', {
+        ...REPLACE_BODY,
+        backgroundUrl: '/bucket/event_images/wide.jpg',
+      });
+    });
+
+    it('rejects a PUT that leaves out a column the editor owns', async () => {
+      const token = await tokenFor('admin');
+      const { backgroundUrl: _omitted, ...incomplete } = REPLACE_BODY;
+
+      const response = await request(app.getHttpServer())
+        .put('/admin/events/event_1')
+        .set('Authorization', `Bearer ${token}`)
+        .send(incomplete);
+
+      expect(response.status).toBe(400);
+      expect(events.replace).not.toHaveBeenCalled();
+    });
+
+    it('carries the background image URL through creation', async () => {
+      const token = await tokenFor('admin');
+      const backgroundUrl = '/bucket/event_images/wide.jpg';
+
+      const response = await request(app.getHttpServer())
+        .post('/admin/events')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ ...EVENT_BODY, backgroundUrl });
+
+      expect(response.status).toBe(201);
+      const [body] = events.create.mock.calls[0] as [Record<string, unknown>];
+      expect(body.backgroundUrl).toBe(backgroundUrl);
+    });
+
     it('deletes an event with no body', async () => {
       const token = await tokenFor('admin');
 
@@ -273,6 +363,26 @@ describe('AdminEventsController (HTTP)', () => {
 
       expect(response.status).toBe(204);
       expect(events.remove).toHaveBeenCalledWith('event_1');
+    });
+
+    it('lists the registrations for one event', async () => {
+      const token = await tokenFor('admin');
+      const registrations = [
+        {
+          id: 'reg_1',
+          createdAt: '2026-11-16T10:00:00.000Z',
+          user: { id: 'user_2', name: 'Ada', email: 'ada@example.com', image: null },
+        },
+      ];
+      events.listRegistrations.mockResolvedValue(registrations);
+
+      const response = await request(app.getHttpServer())
+        .get('/admin/events/event_1/registrations')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(registrations);
+      expect(events.listRegistrations).toHaveBeenCalledWith('event_1');
     });
   });
 
@@ -407,6 +517,34 @@ describe('AdminEventsController (HTTP)', () => {
       expect(response.status).toBe(400);
       expect(response.body.message).toBe('Attach at least one image.');
     });
+
+    it('stores one background image and answers its URL', async () => {
+      const token = await tokenFor('admin');
+      const bytes = Buffer.from('ffd8ffe000104a464946', 'hex');
+
+      const response = await request(app.getHttpServer())
+        .post('/admin/uploads/event-background')
+        .set('Authorization', `Bearer ${token}`)
+        .attach('image', bytes, 'wide.jpg');
+
+      expect(response.status).toBe(201);
+      const { url } = response.body as { url: string };
+      expect(url).toMatch(/^\/bucket\/event_images\/\d+-[0-9a-f-]+\.jpg$/);
+
+      const stored = await readFile(join(imagesDir, basename(url)));
+      expect(stored.equals(bytes)).toBe(true);
+    });
+
+    it('rejects a background upload with no file', async () => {
+      const token = await tokenFor('admin');
+
+      const response = await request(app.getHttpServer())
+        .post('/admin/uploads/event-background')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe('Attach an image.');
+    });
   });
 
   describe('GET /events', () => {
@@ -422,6 +560,59 @@ describe('AdminEventsController (HTTP)', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ id: 'event_1' });
+    });
+  });
+
+  describe('registrations', () => {
+    it('answers registration status for the signed in participant', async () => {
+      prisma.user.findUnique.mockResolvedValue(userRecord('participant'));
+      const token = await tokenFor('participant');
+
+      const response = await request(app.getHttpServer())
+        .get('/events/event_1/registration')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        registered: false,
+        registeredAt: null,
+        open: true,
+      });
+      expect(events.registrationStatus).toHaveBeenCalledWith(
+        'event_1',
+        'user_1',
+      );
+    });
+
+    it('registers the signed in participant', async () => {
+      prisma.user.findUnique.mockResolvedValue(userRecord('participant'));
+      const token = await tokenFor('participant');
+
+      const response = await request(app.getHttpServer())
+        .post('/events/event_1/registrations')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({ id: 'reg_1' });
+      expect(events.register).toHaveBeenCalledWith('event_1', 'user_1');
+    });
+
+    it('rejects an anonymous read of registration status', async () => {
+      const response = await request(app.getHttpServer()).get(
+        '/events/event_1/registration',
+      );
+
+      expect(response.status).toBe(401);
+      expect(events.registrationStatus).not.toHaveBeenCalled();
+    });
+
+    it('rejects an anonymous registration', async () => {
+      const response = await request(app.getHttpServer()).post(
+        '/events/event_1/registrations',
+      );
+
+      expect(response.status).toBe(401);
+      expect(events.register).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,26 +1,76 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+/* The box and whatever sits inside it. The wrapper exists so an inline action,
+   such as a password reveal, can be pinned to the right edge without the input
+   having to know about it. */
+.field__control {
+  position: relative;
+  display: flex;
+}
+
+.field__control--action > .field__input {
+  padding-right: 48px;
+}
+
+.field__action {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.field__action:hover {
+  border-color: var(--color-line-strong);
+  color: var(--color-signal);
+}
+
+.field__action svg {
+  width: 15px;
+  height: 15px;
 }
 
 .field__label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
 }
 
 .field__input {
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;
-  border: 1px solid var(--color-line-strong);
-  border-radius: 8px;
-  background: var(--color-card);
-  color: var(--color-body);
+  border: 2px solid var(--color-line-strong);
+  border-radius: 0;
+  background: var(--color-ink);
+  color: var(--color-chalk);
   transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease;
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.field__input::placeholder {
+  color: var(--color-muted);
+  opacity: 0.7;
 }
 
 .field__input:hover:not(:disabled) {
@@ -29,17 +79,18 @@
 
 .field__input:focus-visible {
   outline: none;
-  border-color: var(--color-focus);
-  box-shadow: 0 0 0 3px rgba(11, 114, 133, 0.16);
+  border-color: var(--color-signal);
+  box-shadow: 0 0 0 3px rgba(41, 240, 255, 0.22);
 }
 
 .field__input:disabled {
-  background: var(--color-paper);
+  background: var(--color-ink-soft);
   color: var(--color-muted);
 }
 
 .field__input[aria-invalid='true'] {
   border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px rgba(255, 77, 122, 0.18);
 }
 
 .field__textarea {
@@ -50,11 +101,12 @@
 }
 
 .field__hint {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--color-muted);
 }
 
 .field__error {
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   color: var(--color-danger);
 }

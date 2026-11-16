@@ -2,6 +2,7 @@ import { AppNav } from '../../components/AppNav';
 import { LightRays } from '../../components/LightRays';
 import { StatusScreen } from '../../components/StatusScreen';
 import { useAuthStore } from '../auth/auth-store';
+import { HackathonCalendar } from '../hackathon/HackathonCalendar';
 import './home.css';
 
 const STEPS = [
@@ -34,25 +35,25 @@ export function HomePage() {
         <div className="home-stage__rays">
           <LightRays
             raysOrigin="top-center"
-            raysColor="#8beef8"
-            raysSpeed={0.7}
-            lightSpread={0.62}
-            rayLength={2.8}
-            rayDensity={1.1}
-            raySharpness={0.45}
-            glow={0.65}
-            haze={0.35}
-            atmosphere={0.8}
-            intensity={0.9}
+            raysColor="#29f0ff"
+            raysSpeed={0.6}
+            lightSpread={0.55}
+            rayLength={2.6}
+            rayDensity={1}
+            raySharpness={0.5}
+            glow={0.45}
+            haze={0.25}
+            atmosphere={0.55}
+            intensity={0.6}
             fadeDistance={1.1}
-            saturation={1.2}
+            saturation={1.05}
             followMouse
-            mouseInfluence={0.08}
+            mouseInfluence={0.06}
             cursorShadow
             clickPulse={false}
             noiseAmount={0.02}
             distortion={0.05}
-            opacity={0.85}
+            opacity={0.5}
             maxDevicePixelRatio={1.75}
           />
         </div>
@@ -111,6 +112,8 @@ export function HomePage() {
             </p>
           </section>
         </div>
+
+        <HackathonCalendar />
       </main>
     </div>
   );

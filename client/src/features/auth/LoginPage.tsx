@@ -1,5 +1,6 @@
 import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { PasswordField } from '../../components/PasswordField';
 import { TextField } from '../../components/TextField';
 import { AuthRequestError, authErrorMessage } from '../../lib/auth-error';
 import { emailRules } from '../../lib/validation';
@@ -93,9 +94,8 @@ export function LoginPage() {
           error={errors.email?.message}
           {...register('email', emailRules)}
         />
-        <TextField
+        <PasswordField
           label="Password"
-          type="password"
           autoComplete="current-password"
           required
           error={errors.password?.message}

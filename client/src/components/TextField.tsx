@@ -1,11 +1,16 @@
 import { useId } from 'react';
-import type { ComponentPropsWithRef } from 'react';
+import type { ComponentPropsWithRef, ReactNode } from 'react';
 import './TextField.css';
 
 type TextFieldProps = Omit<ComponentPropsWithRef<'input'>, 'id'> & {
   label: string;
   hint?: string;
   error?: string;
+  /**
+   * A control that belongs inside the box, such as the password reveal. It is
+   * pinned to the right edge and the input reserves room for it.
+   */
+  action?: ReactNode;
 };
 
 /**
@@ -17,6 +22,7 @@ export function TextField({
   label,
   hint,
   error,
+  action,
   ...inputProps
 }: TextFieldProps) {
   const id = useId();
@@ -34,13 +40,22 @@ export function TextField({
       <label className="field__label" htmlFor={id}>
         {label}
       </label>
-      <input
-        {...inputProps}
-        id={id}
-        className="field__input"
-        aria-invalid={error !== undefined}
-        aria-describedby={describedBy.length > 0 ? describedBy : undefined}
-      />
+      <div
+        className={
+          action === undefined
+            ? 'field__control'
+            : 'field__control field__control--action'
+        }
+      >
+        <input
+          {...inputProps}
+          id={id}
+          className="field__input"
+          aria-invalid={error !== undefined}
+          aria-describedby={describedBy.length > 0 ? describedBy : undefined}
+        />
+        {action !== undefined ? action : null}
+      </div>
       {hint !== undefined ? (
         <p className="field__hint" id={hintId}>
           {hint}

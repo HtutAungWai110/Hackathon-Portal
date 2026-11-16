@@ -166,6 +166,25 @@ Rules for the CLI:
    starting point, not finished code.
 5. Run `npm run lint`, `npm run build`, and the relevant tests before declaring a task done.
 
+## Mail and the queue
+
+Email is asynchronous. `src/mail/` owns it; auth only calls the `AUTH_MAIL` adapter in
+`src/auth/auth.mail.ts`, which enqueues a job.
+
+- Delivery runs on BullMQ, so Redis must be up: `docker compose up -d redis`. The API still
+  boots without it, but no mail leaves and the reason is logged.
+- The queue is a producer (`MailService.enqueue`) and a worker (`MailProcessor`) in the same
+  app. Do not send SMTP from a request handler; enqueue.
+- `ADMIN_EMAIL` plus `APP_PASSWORD` turn SMTP on, with Gmail defaults. Without both, the worker
+  uses `LogMailTransport` and prints the link instead, which is the only path that logs one.
+- Templates live in `mail.templates.ts` and are rendered on every attempt. A URL must go
+  through `escapeHtml`; verification links contain `&`.
+- Worker failures must reject so BullMQ retries. Enqueue failures are caught in
+  `AuthMailService` on purpose: an account that was already created must not be reported as
+  failed.
+- BullMQ 6 does not bundle `ioredis`; it is a direct dependency. Installs in this repo need
+  `--legacy-peer-deps` because `@arcjet/nest` still peers on Nest 10 and 11.
+
 ## Workflow
 
 1. Read the relevant files before editing. Do not guess at existing behavior.

@@ -1,8 +1,8 @@
 .app-nav {
   position: relative;
   z-index: 2;
-  padding: 18px clamp(20px, 4vw, 40px) 0;
-  color: #e4fafd;
+  padding: 20px clamp(20px, 4vw, 40px) 0;
+  color: var(--color-chalk);
 }
 
 .app-nav__row {
@@ -15,63 +15,61 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   text-decoration: none;
   color: inherit;
 }
 
 .app-nav__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #000;
   background: var(--color-signal);
-  box-shadow: 0 0 12px rgba(34, 211, 238, 0.85);
+  box-shadow: 2px 2px 0 #000;
 }
 
 .app-nav__links {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 
 .app-nav__link {
   position: relative;
-  padding: 7px 11px;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 8px 12px;
+  border: 2px solid transparent;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   text-decoration: none;
-  color: rgba(207, 233, 240, 0.72);
+  color: rgba(211, 232, 238, 0.7);
   transition:
-    color 140ms ease,
-    background-color 140ms ease;
+    color 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
 }
 
 .app-nav__link:hover {
-  color: #ffffff;
-  background: rgba(34, 211, 238, 0.1);
+  border-color: var(--color-signal);
+  color: var(--color-signal);
 }
 
 .app-nav__link--active {
-  color: #ffffff;
-}
-
-.app-nav__link--active::after {
-  content: '';
-  position: absolute;
-  right: 11px;
-  bottom: 1px;
-  left: 11px;
-  height: 2px;
-  border-radius: 2px;
+  border-color: var(--color-signal);
   background: var(--color-signal);
+  color: var(--color-ink);
 }
 
-.app-nav__link:focus-visible {
-  outline-color: var(--color-signal);
+/* The active tab is a filled block; the underline would double it. */
+.app-nav__link--active::after {
+  content: none;
 }
 
 .app-nav__account {
@@ -85,9 +83,9 @@
   max-width: 22ch;
   overflow: hidden;
   font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  color: rgba(207, 233, 240, 0.66);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -95,11 +93,11 @@
 .app-nav__error {
   max-width: 1180px;
   margin: 12px auto 0;
-  padding: 10px 12px;
-  border-left: 3px solid var(--color-danger);
-  border-radius: 6px;
+  padding: 10px 14px;
+  border: 2px solid var(--color-danger);
+  border-left-width: 6px;
   background: var(--color-danger-soft);
-  color: var(--color-danger);
+  color: #ffc2d1;
   font-size: 13px;
 }
 
@@ -112,7 +110,7 @@
   .app-nav__links {
     order: 3;
     width: 100%;
-    margin-left: -11px;
+    margin-left: -12px;
   }
 
   .app-nav__user {

@@ -1,11 +1,17 @@
 import { useId } from 'react';
-import type { ComponentPropsWithRef } from 'react';
+import type { ComponentPropsWithRef, ReactNode } from 'react';
 import './TextField.css';
 
 type TextAreaFieldProps = Omit<ComponentPropsWithRef<'textarea'>, 'id'> & {
   label: string;
   hint?: string;
   error?: string;
+  /**
+   * Controls that belong to this field, such as the description's list
+   * buttons. Rendered under the label and above the box, so they read as part
+   * of the field rather than as page actions.
+   */
+  toolbar?: ReactNode;
 };
 
 /**
@@ -16,6 +22,7 @@ export function TextAreaField({
   label,
   hint,
   error,
+  toolbar,
   ...inputProps
 }: TextAreaFieldProps) {
   const id = useId();
@@ -33,6 +40,7 @@ export function TextAreaField({
       <label className="field__label" htmlFor={id}>
         {label}
       </label>
+      {toolbar !== undefined ? toolbar : null}
       <textarea
         {...inputProps}
         id={id}

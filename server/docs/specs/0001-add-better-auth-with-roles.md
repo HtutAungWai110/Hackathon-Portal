@@ -20,7 +20,7 @@ The product needs user accounts before any application data can be tied to a per
 
 The engineer already configured `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`. The Google console currently lists `http://localhost:3000/auth/callback`, while the standard Better Auth callback for a base path of `/auth` is `http://localhost:3000/auth/callback/google`.
 
-> ⚠️ **Premise note**: Email delivery only writes verification and reset links to the server log in development. That is fine for local work, but real users cannot verify or recover an account until a real email provider replaces it. Treat that as a release blocker, not a permanent design.
+> ⚠️ **Premise note**: This spec originally wrote verification and reset links to the server log only. **Spec [0004](0004-async-email-delivery.md) now delivers them over SMTP through a BullMQ queue**; the log sink remains only for a machine with no mail credentials. The flows below are unchanged, so every AC still describes the link being opened, wherever it was read from.
 
 ## Requirements
 
@@ -34,8 +34,8 @@ The engineer already configured `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE
 **Acceptance criteria** (the contract, each criterion is IDed and independently checkable):
 - **AC-1**: A first time Google sign in redirects to Google, returns to `http://localhost:3000/auth/callback/google`, creates a `User` with `role = "participant"` and `emailVerified = true`, and returns a session cookie.
 - **AC-2**: Email and password sign up returns `200` with the created user and **no session cookie**, creates a `User` with `role = "participant"`, and creates an `Account` row with `providerId = "credential"` holding a hash. No response body contains a hash, and a request that sends `role` in the body is refused with `400` and code `FIELD_NOT_ALLOWED`, so a client can never set its own role.
-- **AC-3**: Before email verification, credentials sign in returns `403` with body `{ code: "EMAIL_NOT_VERIFIED", status: 403 }`. After the logged verification link is opened, the same sign in returns `200` and a session cookie.
-- **AC-4**: `POST /auth/forget-password` accepts an email and logs a reset URL and token. `POST /auth/reset-password` with that token changes the password, after which the old password fails with `401` and the new password succeeds.
+- **AC-3**: Before email verification, credentials sign in returns `403` with body `{ code: "EMAIL_NOT_VERIFIED", status: 403 }`. After the verification link from the delivered email (or from the log when no mail credentials are configured) is opened, the same sign in returns `200` and a session cookie.
+- **AC-4**: `POST /auth/forget-password` accepts an email and delivers a reset URL and token. `POST /auth/reset-password` with that token changes the password, after which the old password fails with `401` and the new password succeeds.
 - **AC-5**: A Google sign in whose email belongs to an already verified credentials user adds a `google` `Account` to that user and does not create a second `User` or a second `Session` owner.
 - **AC-6**: `GET /auth/get-session` returns the user id, email, name, and role for a valid session cookie, and `null` without one. `Session.expiresAt` is exactly 7 days after creation and is not extended by activity. The session cookie is named `better-auth.session_token`, with the `__Secure-` prefix when cookies are secure.
 - **AC-7**: Every application route not marked `@AllowAnonymous()` returns `401` with a JSON body without a valid session. `GET /` stays public and returns `Hello World!`.
@@ -184,11 +184,11 @@ Better Auth is the right fit because the engineer already chose it, the secret a
 - The global `ValidationPipe` is added in `main.ts` with `whitelist: true`, `forbidNonWhitelisted: true`, and `transform: true` when the first DTO backed controller is added. It does not touch auth routes.
 
 **Email flows**:
-- `AuthMailService` takes a `VerificationMail` or `ResetMail` payload and logs the recipient, the URL, and the raw token with the Nest `Logger`. Tokens are logged because the repo has no mail provider in local development, so the only way to follow a link without one is the log; tests parse them from there or from an injected spy.
+- `AuthMailService` takes a `VerificationMail` or `ResetMail` payload and enqueues it (spec 0004). The `AuthMail` interface did not change, so `createAuth` did not either. With SMTP credentials the link arrives by email; without them the worker writes the URL to the log, which is the only way to follow it on a machine with no mailbox.
 - `emailVerification.sendOnSignUp: true` and `sendOnSignIn: true` are required, because `sendOnSignUp` defaults to false and AC-3 depends on the link existing.
 - `emailVerification.autoSignInAfterVerification` stays false, so AC-3 proves the sign in step.
 - `emailAndPassword.requireEmailVerification: true`, `minPasswordLength: 8`, `maxPasswordLength: 128`.
-- Verification and reset tokens are signed JWTs, so they are **not** rows in `Verification`. The `Verification` table still has to exist because Better Auth's schema check requires it, but these two flows leave it empty. The only copy of the token is the logged link, which is why `AuthMailService` logs it.
+- Verification and reset tokens are signed JWTs, so they are **not** rows in `Verification`. The `Verification` table still has to exist because Better Auth's schema check requires it, but these two flows leave it empty. The only copy of the token is the link inside the message (the email body or, with no credentials, the log line), so the queued job is the only stored copy for the short window before delivery.
 - Sign up sends its own default `callbackURL` of `/`, which overrides the static `emailVerification.callbackURL` option. `withVerifiedReturn` rewrites that query parameter to `${CLIENT_URL}/login?verified=true` before the mail is sent, so the link returns to the SPA login page, which explains the confirmed state.
 
 **Account linking**:
@@ -197,7 +197,7 @@ Better Auth is the right fit because the engineer already chose it, the secret a
 
 **Configuration validation**:
 - `ConfigModule.forRoot` gains a `validate` function in `src/config/env.validation.ts`. It checks `BETTER_AUTH_SECRET` (minimum 32 characters), `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and the already required `ARCJET_KEY`, and throws an `Error` naming the first missing or invalid key so bootstrap fails loudly (AC-12).
-- `ADMIN_EMAIL` is optional there, because only the seed script reads it, and the seed fails on its own when it is absent.
+- `ADMIN_EMAIL` stays optional for the seed script, but `APP_PASSWORD` without it is rejected, because the password signs in as that address (spec 0004). `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `MAIL_FROM_NAME`, and `REDIS_URL` are optional and validated when present.
 
 **`createAuth` wiring**:
 - Signature: `createAuth(prisma: PrismaService, config: ConfigService, mail: AuthMailService): Auth`.
@@ -275,7 +275,7 @@ The project has no recorded delivery approach, so this plan defaults to end to e
 1. [x] Install `better-auth@^1.7.19`, `@thallesp/nestjs-better-auth@^2.8.0`, and `tsx` as a development dependency, using `--legacy-peer-deps` because `@arcjet/nest` declares a peer range below Nest 12. Satisfies **AC-1**, **AC-9**
 2. [x] Rewrite `prisma/schema.prisma` per the data model, then run `prisma migrate dev --name add_auth_identity` and `prisma migrate dev --name drop_legacy_user_columns` against `hackathon`, then `prisma generate`. Satisfies **AC-11**. Note: `prisma migrate dev` did **not** regenerate the client here, which left a stale `_runtimeDataModel` and every auth request failing with `SCHEMA_MISMATCH`. Run `prisma generate` explicitly after any schema change.
 3. [x] Add `src/config/env.validation.ts` and wire it into `ConfigModule.forRoot`. Satisfies **AC-12**
-4. [x] Create `src/auth/auth.mail.ts` with the `AUTH_MAIL` token, the payload types, and `AuthMailService` that logs URL and token, plus `AuthMailModule` exporting both. Satisfies **AC-3**, **AC-4**
+4. [x] Create `src/auth/auth.mail.ts` with the `AUTH_MAIL` token, the payload types, and `AuthMailService`, plus `AuthMailModule` exporting both. Delivery is now queued (spec 0004). Satisfies **AC-3**, **AC-4**
 5. [x] Create `src/auth/auth.config.ts` with `createAuth(prisma, config, mail)`: Prisma adapter with `transaction: true`, base path `/auth`, Google provider, email and password with verification required and reset enabled, `sendOnSignUp`, `sendOnSignIn`, `callbackURL`, account linking limited to Google, admin plugin with `defaultRole: "participant"` and `adminRoles: ["admin"]`, a `databaseHooks.user.create.before` that forces `role = "participant"`, pinned session values, explicit rate limit rules, and trusted origins. Satisfies **AC-1** to **AC-6**, **AC-10**, **AC-13**, **AC-17**
 6. [x] Create `src/auth/auth.module.ts` using `AuthModule.forRootAsync` with `disableGlobalAuthGuard: true`, injecting `PrismaService`, `ConfigService`, and `AUTH_MAIL`. Satisfies **AC-15**
 7. [x] Wire `AuthModule` into `AppModule`, register `APP_GUARD` as Arcjet then `AuthGuard`, set `bodyParser: false` in `main.ts`, and change the Arcjet rate limit throw to the JSON body. Satisfies **AC-10**, **AC-15**, **AC-16**
