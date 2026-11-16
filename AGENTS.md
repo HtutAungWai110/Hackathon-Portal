@@ -83,6 +83,26 @@ to suit one screen without saying so.
 - Adding a server dependency needs `--legacy-peer-deps`: `@arcjet/nest@1.15` peers on
   `@nestjs/common ^10 || ^11` while this project runs Nest 12.
 
+## Commits, pushes, and the README
+
+`README.md` is the public record of how this repository is laid out. It carries the package
+table, the directory tree, the client feature folders and routes, the server modules, the API
+surface, the data model, the local setup steps, and the environment variables.
+
+When the user asks to **commit and push at the end of a session**, update `README.md` first, in
+the same commit. Re-read the tree and the routes rather than trusting what the README already
+says:
+
+1. Compare `README.md` against the code being committed. Add, rename, or remove any folder,
+   route, endpoint, script, migration step, or environment variable that changed. Correct drift
+   even when the current session did not cause it.
+2. Only then stage: `git add -A` at the repository root.
+3. Commit with a message that covers the whole change, not just the last step.
+4. Push to the branch the work is on, and report the commit hash and the push result.
+
+A commit that changes structure without changing the README is incomplete. Do not push code
+that the README no longer describes.
+
 ## Workflow
 
 1. Read the files you are about to change and the matching package `AGENTS.md`. Do not guess.
@@ -92,3 +112,4 @@ to suit one screen without saying so.
 5. Verify in the package you touched: `npm run lint` and `npm run build`, plus tests where they
    exist. If you touched both, check both.
 6. Report what changed, and which skill you used, if any.
+7. On a commit and push request, follow "Commits, pushes, and the README" above before staging.
