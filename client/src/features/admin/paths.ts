@@ -6,6 +6,7 @@
 export const ADMIN_DASHBOARD_PATH = '/admin/dashboard';
 export const CREATE_HACKATHON_PATH = '/admin/dashboard/hackathon/create';
 export const EDIT_HACKATHON_PATH = '/admin/dashboard/hackathon/edit';
+export const REGISTRATIONS_PATH = '/admin/dashboard/hackathon/registrations';
 
 /**
  * The edit screen's address. The event id is a query parameter, the same shape
@@ -13,5 +14,10 @@ export const EDIT_HACKATHON_PATH = '/admin/dashboard/hackathon/edit';
  */
 export function editHackathonPath(id: string): string {
   return `${EDIT_HACKATHON_PATH}?id=${encodeURIComponent(id)}`;
+}
+
+/** The registrations page for one event, addressed the same way as edit. */
+export function registrationsPath(id: string): string {
+  return `${REGISTRATIONS_PATH}?id=${encodeURIComponent(id)}`;
 }
 

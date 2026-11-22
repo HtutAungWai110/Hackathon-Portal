@@ -10,10 +10,12 @@ import {
 import { AdminDashboardRoute } from '../features/admin/AdminDashboardRoute';
 import { CreateHackathonRoute } from '../features/admin/CreateHackathonRoute';
 import { EditHackathonRoute } from '../features/admin/EditHackathonRoute';
+import { RegistrationsRoute } from '../features/admin/RegistrationsRoute';
 import {
   ADMIN_DASHBOARD_PATH,
   CREATE_HACKATHON_PATH,
   EDIT_HACKATHON_PATH,
+  REGISTRATIONS_PATH,
 } from '../features/admin/paths';
 import { HACKATHON_PATH } from '../features/hackathon/paths';
 import { HackathonDetailPage } from '../features/hackathon/HackathonDetailPage';
@@ -53,6 +55,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAdmin>
         <EditHackathonRoute />
+      </RequireAdmin>
+    ),
+  },
+  {
+    path: REGISTRATIONS_PATH,
+    element: (
+      <RequireAdmin>
+        <RegistrationsRoute />
       </RequireAdmin>
     ),
   },

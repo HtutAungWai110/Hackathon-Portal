@@ -1,6 +1,7 @@
 import { apiFetch } from '../../lib/api-client';
 
 export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'CANCELLED';
+export type ApplicationStatus = 'IN_PROGRESS' | 'INTERVIEW' | 'REJECTED';
 export type SponsorTier = 'MAIN' | 'CO_SPONSOR';
 
 /**
@@ -123,10 +124,14 @@ export type CreateEventResult = {
   failedSponsors: FailedSponsor[];
 };
 
-/** One participant holding a place, as the console lists them. */
+/** One participant's application for an event, as the console lists it. */
 export type AdminRegistration = {
   id: string;
-  createdAt: string;
+  additionalMessage: string;
+  companyName: string | null;
+  companyEmail: string | null;
+  status: ApplicationStatus;
+  applicationDate: string;
   user: {
     id: string;
     name: string;
@@ -135,11 +140,47 @@ export type AdminRegistration = {
   };
 };
 
+/** The page sizes the console offers for the applications list. */
+export const REGISTRATION_PAGE_SIZES = [10, 20, 40, 60, 80, 100] as const;
+export type RegistrationPageSize = (typeof REGISTRATION_PAGE_SIZES)[number];
+
+/**
+ * One console page of an event's applications, as
+ * `GET /admin/events/:id/registrations` answers it. The envelope is what the
+ * paging controls render: the page, the page size, the total, and the pages
+ * that exist.
+ */
+export type PaginatedApplications = {
+  items: AdminRegistration[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  registrationId: string | null;
+};
+
+/**
+ * The paging controls of the applications list. `page` defaults to 1 and
+ * `limit` to 10; `registrationId` is the deep link that returns to one row's
+ * page instead of paging through numbers.
+ */
+export type RegistrationsQuery = {
+  page?: number;
+  limit?: RegistrationPageSize;
+  registrationId?: string;
+};
+
 export const adminEventKeys = {
   all: ['admin', 'events'] as const,
   detail: (id: string) => ['admin', 'events', id] as const,
-  registrations: (id: string) =>
-    ['admin', 'events', id, 'registrations'] as const,
+  registrations: (id: string, query?: RegistrationsQuery) =>
+    [
+      'admin',
+      'events',
+      id,
+      'registrations',
+      query ?? { page: 1, limit: 10 },
+    ] as const,
 };
 
 export const adminCompanyKeys = {
@@ -264,13 +305,24 @@ export function deleteAdminEvent(id: string): Promise<void> {
 }
 
 /**
- * The people who hold a place at one event. It is its own request because the
- * console fetches it only when a row expands, not with every event.
+ * One page of an event's applications. It is its own request because the
+ * console fetches it only when a row expands or a page is opened, not with
+ * every event.
  */
 export function listEventRegistrations(
   eventId: string,
-): Promise<AdminRegistration[]> {
-  return apiFetch<AdminRegistration[]>(
-    `/admin/events/${encodeURIComponent(eventId)}/registrations`,
+  query: RegistrationsQuery = {},
+): Promise<PaginatedApplications> {
+  const params = new URLSearchParams();
+  params.set('page', String(query.page ?? 1));
+  if (query.limit !== undefined) {
+    params.set('limit', String(query.limit));
+  }
+  if (query.registrationId !== undefined && query.registrationId.length > 0) {
+    params.set('registrationId', query.registrationId);
+  }
+  const queryString = params.toString();
+  return apiFetch<PaginatedApplications>(
+    `/admin/events/${encodeURIComponent(eventId)}/registrations${queryString ? `?${queryString}` : ''}`,
   );
 }

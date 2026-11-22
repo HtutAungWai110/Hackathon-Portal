@@ -65,8 +65,9 @@ Spec 0001 in `docs/specs/0001-add-better-auth-with-roles.md` · token layer (ame
 
 ### 2. Hackathon events & sponsors · in-progress
 Admins create hackathon events and attach companies as main sponsors or co-sponsors. Events
-are public to read once published, and every admin route is behind the `admin` role. The
-existing `Applications` table is unchanged.
+are public to read once published, and every admin route is behind the `admin` role.
+Applications are the registration: one row per account and event, carrying the participant's
+introduction plus optional company details.
 **Done when:** an admin can create an event with sponsors and a visitor can list published
 events without an account.
 - [x] Design it (spec): `/architect hackathon events & sponsors`
@@ -85,8 +86,9 @@ events without an account.
    - [x] Event edit as `PUT` with a required full body, `PATCH` kept for the publish toggle
      (AC-14)
    - [x] Client: public event list and event page
-   - [x] Participant registration: one row per account and event, Register on the public page,
-     and a per-event admin registrations drawer fetched on open (spec 0005)
+   - [x] Participant registration: an `Applications` row per account and event with a required
+     introduction, Register on the public page, a per-event admin applications drawer fetched
+     on open, and a full registrations page linked from the event page (spec 0005)
 - [ ] Verify it: `/check verify hackathon events & sponsors`
 - [ ] Test it: `/test hackathon events & sponsors`
 

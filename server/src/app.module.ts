@@ -14,6 +14,7 @@ import { validateEnv } from './config/env.validation.js';
 import { readRedisConnection } from './config/redis.config.js';
 import { EventsModule } from './events/events.module.js';
 import { ObserveModule } from './observe.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 
@@ -81,6 +82,7 @@ import { UploadsModule } from './uploads/uploads.module.js';
     AuthModule,
     SessionModule,
     EventsModule,
+    NotificationsModule,
     UploadsModule,
     AdminModule,
   ],

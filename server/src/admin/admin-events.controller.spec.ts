@@ -107,7 +107,14 @@ describe('AdminEventsController (HTTP)', () => {
       addSponsor: vi.fn().mockResolvedValue({ id: 'sponsor_1' }),
       updateSponsor: vi.fn().mockResolvedValue({ id: 'sponsor_1' }),
       removeSponsor: vi.fn().mockResolvedValue(undefined),
-      listRegistrations: vi.fn().mockResolvedValue([]),
+      listRegistrations: vi.fn().mockResolvedValue({
+        items: [],
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 1,
+        registrationId: null,
+      }),
       registrationStatus: vi
         .fn()
         .mockResolvedValue({ registered: false, registeredAt: null, open: true }),
@@ -365,24 +372,70 @@ describe('AdminEventsController (HTTP)', () => {
       expect(events.remove).toHaveBeenCalledWith('event_1');
     });
 
-    it('lists the registrations for one event', async () => {
+    it('lists one page of registrations for one event', async () => {
       const token = await tokenFor('admin');
-      const registrations = [
-        {
-          id: 'reg_1',
-          createdAt: '2026-11-16T10:00:00.000Z',
-          user: { id: 'user_2', name: 'Ada', email: 'ada@example.com', image: null },
-        },
-      ];
-      events.listRegistrations.mockResolvedValue(registrations);
+      const page = {
+        items: [
+          {
+            id: 'app_1',
+            additionalMessage: 'I have shipped two payment systems.',
+            companyName: 'Acme',
+            companyEmail: 'team@acme.example',
+            status: 'IN_PROGRESS',
+            applicationDate: '2026-11-16T10:00:00.000Z',
+            user: {
+              id: 'user_2',
+              name: 'Ada',
+              email: 'ada@example.com',
+              image: null,
+            },
+          },
+        ],
+        page: 2,
+        limit: 20,
+        total: 21,
+        totalPages: 2,
+        registrationId: null,
+      };
+      events.listRegistrations.mockResolvedValue(page);
 
       const response = await request(app.getHttpServer())
-        .get('/admin/events/event_1/registrations')
+        .get('/admin/events/event_1/registrations?page=2&limit=20')
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual(registrations);
-      expect(events.listRegistrations).toHaveBeenCalledWith('event_1');
+      expect(response.body).toEqual(page);
+      expect(events.listRegistrations).toHaveBeenCalledWith(
+        'event_1',
+        expect.objectContaining({ page: 2, limit: 20 }),
+      );
+    });
+
+    it('accepts a registrationId deep link', async () => {
+      const token = await tokenFor('admin');
+
+      const response = await request(app.getHttpServer())
+        .get(
+          '/admin/events/event_1/registrations?registrationId=app_12',
+        )
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(events.listRegistrations).toHaveBeenCalledWith(
+        'event_1',
+        expect.objectContaining({ registrationId: 'app_12' }),
+      );
+    });
+
+    it('rejects a page size the console does not offer', async () => {
+      const token = await tokenFor('admin');
+
+      const response = await request(app.getHttpServer())
+        .get('/admin/events/event_1/registrations?limit=30')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(400);
+      expect(events.listRegistrations).not.toHaveBeenCalled();
     });
   });
 
@@ -584,17 +637,60 @@ describe('AdminEventsController (HTTP)', () => {
       );
     });
 
-    it('registers the signed in participant', async () => {
+    it('registers the signed in participant with their message', async () => {
+      prisma.user.findUnique.mockResolvedValue(userRecord('participant'));
+      const token = await tokenFor('participant');
+      const body = {
+        additionalMessage: 'I have shipped two payment systems.',
+        companyName: 'Acme',
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/events/event_1/registrations')
+        .set('Authorization', `Bearer ${token}`)
+        .send(body);
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({ id: 'reg_1' });
+      expect(events.register).toHaveBeenCalledWith(
+        'event_1',
+        expect.objectContaining({ id: 'user_1' }),
+        body,
+      );
+    });
+
+    it('accepts a blank optional company email', async () => {
+      prisma.user.findUnique.mockResolvedValue(userRecord('participant'));
+      const token = await tokenFor('participant');
+      const body = {
+        additionalMessage: 'I build things.',
+        companyEmail: '',
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/events/event_1/registrations')
+        .set('Authorization', `Bearer ${token}`)
+        .send(body);
+
+      expect(response.status).toBe(201);
+      expect(events.register).toHaveBeenCalledWith(
+        'event_1',
+        expect.objectContaining({ id: 'user_1' }),
+        body,
+      );
+    });
+
+    it('rejects a registration with no message', async () => {
       prisma.user.findUnique.mockResolvedValue(userRecord('participant'));
       const token = await tokenFor('participant');
 
       const response = await request(app.getHttpServer())
         .post('/events/event_1/registrations')
-        .set('Authorization', `Bearer ${token}`);
+        .set('Authorization', `Bearer ${token}`)
+        .send({ companyName: 'Acme' });
 
-      expect(response.status).toBe(201);
-      expect(response.body).toEqual({ id: 'reg_1' });
-      expect(events.register).toHaveBeenCalledWith('event_1', 'user_1');
+      expect(response.status).toBe(400);
+      expect(events.register).not.toHaveBeenCalled();
     });
 
     it('rejects an anonymous read of registration status', async () => {
@@ -607,9 +703,9 @@ describe('AdminEventsController (HTTP)', () => {
     });
 
     it('rejects an anonymous registration', async () => {
-      const response = await request(app.getHttpServer()).post(
-        '/events/event_1/registrations',
-      );
+      const response = await request(app.getHttpServer())
+        .post('/events/event_1/registrations')
+        .send({ additionalMessage: 'I build things.' });
 
       expect(response.status).toBe(401);
       expect(events.register).not.toHaveBeenCalled();

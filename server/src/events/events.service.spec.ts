@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '../generated/prisma/client.js';
+import type { PublicUser } from '../auth/session/public-user.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateEventDto } from './dto/create-event.dto.js';
 import type { CreateSponsorDto } from './dto/create-sponsor.dto.js';
@@ -78,15 +80,35 @@ type PrismaMock = {
     update: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
   };
-  eventRegistration: {
+  applications: {
     create: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
+  };
+  user: {
     findMany: ReturnType<typeof vi.fn>;
   };
 };
 
+/** The signed in caller of `register`; the API answers with `PublicUser`. */
+function applicant(): PublicUser {
+  return {
+    id: 'user_1',
+    name: 'Avery Jumps',
+    email: 'avery@example.com',
+    emailVerified: true,
+    image: null,
+    role: 'participant',
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+  };
+}
+
 describe('EventsService', () => {
   let service: EventsService;
+  let notifications: NotificationsService;
   let prisma: PrismaMock;
 
   beforeEach(async () => {
@@ -110,18 +132,28 @@ describe('EventsService', () => {
         update: vi.fn(),
         delete: vi.fn(),
       },
-      eventRegistration: {
+      applications: {
         create: vi.fn(),
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
         findMany: vi.fn(),
+        count: vi.fn(),
+      },
+      user: {
+        findMany: vi.fn().mockResolvedValue([]),
       },
     };
 
     const module = await Test.createTestingModule({
-      providers: [EventsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        EventsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: NotificationsService, useValue: { notify: vi.fn() } },
+      ],
     }).compile();
 
     service = module.get<EventsService>(EventsService);
+    notifications = module.get<NotificationsService>(NotificationsService);
   });
 
   describe('list', () => {
@@ -169,7 +201,7 @@ describe('EventsService', () => {
       prisma.hackathonEvent.findUnique.mockResolvedValue({
         id: 'event_1',
         status: 'DRAFT',
-        _count: { registrations: 0 },
+        _count: { applications: 0 },
       });
 
       await expect(service.findOneForAdmin('event_1')).resolves.toMatchObject({
@@ -199,7 +231,7 @@ describe('EventsService', () => {
         startsAt: new Date(STARTS_AT),
         registrationDeadline: null,
       });
-      prisma.eventRegistration.findUnique.mockResolvedValue(null);
+      prisma.applications.findUnique.mockResolvedValue(null);
 
       await expect(
         service.registrationStatus('event_1', 'user_1'),
@@ -211,24 +243,26 @@ describe('EventsService', () => {
     });
 
     it('reports a held place with when it was taken', async () => {
-      const registeredAt = new Date('2026-11-10T12:00:00.000Z');
+      const appliedAt = new Date('2026-11-10T12:00:00.000Z');
       prisma.hackathonEvent.findFirst.mockResolvedValue({
         status: 'PUBLISHED',
         startsAt: new Date(STARTS_AT),
         registrationDeadline: null,
       });
-      prisma.eventRegistration.findUnique.mockResolvedValue({ createdAt: registeredAt });
+      prisma.applications.findUnique.mockResolvedValue({
+        applicationDate: appliedAt,
+      });
 
       await expect(
         service.registrationStatus('event_1', 'user_1'),
       ).resolves.toEqual({
         registered: true,
-        registeredAt,
+        registeredAt: appliedAt,
         open: true,
       });
-      expect(prisma.eventRegistration.findUnique).toHaveBeenCalledWith({
-        where: { eventId_userId: { eventId: 'event_1', userId: 'user_1' } },
-        select: { createdAt: true },
+      expect(prisma.applications.findUnique).toHaveBeenCalledWith({
+        where: { eventId_applier: { eventId: 'event_1', applier: 'user_1' } },
+        select: { applicationDate: true },
       });
     });
 
@@ -238,7 +272,7 @@ describe('EventsService', () => {
         startsAt: new Date(STARTS_AT),
         registrationDeadline: new Date('2020-01-01T00:00:00.000Z'),
       });
-      prisma.eventRegistration.findUnique.mockResolvedValue(null);
+      prisma.applications.findUnique.mockResolvedValue(null);
 
       await expect(
         service.registrationStatus('event_1', 'user_1'),
@@ -251,7 +285,7 @@ describe('EventsService', () => {
         startsAt: new Date('2020-01-01T00:00:00.000Z'),
         registrationDeadline: null,
       });
-      prisma.eventRegistration.findUnique.mockResolvedValue(null);
+      prisma.applications.findUnique.mockResolvedValue(null);
 
       await expect(
         service.registrationStatus('event_1', 'user_1'),
@@ -272,28 +306,77 @@ describe('EventsService', () => {
       status: 'PUBLISHED',
       startsAt: new Date(STARTS_AT),
       registrationDeadline: null,
+      title: 'Winter Jam',
     };
 
-    it('takes a place and answers the new registration', async () => {
+    it('stores the message and the optional company on one application', async () => {
       prisma.hackathonEvent.findUnique.mockResolvedValue(OPEN_EVENT);
       const row = {
-        id: 'reg_1',
+        id: 'app_1',
         eventId: 'event_1',
-        userId: 'user_1',
-        createdAt: new Date('2026-11-16T10:00:00.000Z'),
+        applier: 'user_1',
+        additionalMessage: 'I have shipped two payment systems.',
+        companyName: 'Acme',
+        companyEmail: 'team@acme.example',
+        status: 'IN_PROGRESS',
+        applicationDate: new Date('2026-11-16T10:00:00.000Z'),
       };
-      prisma.eventRegistration.create.mockResolvedValue(row);
+      prisma.applications.create.mockResolvedValue(row);
 
-      await expect(service.register('event_1', 'user_1')).resolves.toBe(row);
-      expect(prisma.eventRegistration.create).toHaveBeenCalledWith({
-        data: { eventId: 'event_1', userId: 'user_1' },
+      await expect(
+        service.register('event_1', applicant(), {
+          additionalMessage: '  I have shipped two payment systems.  ',
+          companyName: '  Acme  ',
+          companyEmail: ' team@acme.example ',
+        }),
+      ).resolves.toBe(row);
+
+      expect(prisma.applications.create).toHaveBeenCalledWith({
+        data: {
+          eventId: 'event_1',
+          applier: 'user_1',
+          additionalMessage: 'I have shipped two payment systems.',
+          companyName: 'Acme',
+          companyEmail: 'team@acme.example',
+        },
         select: {
           id: true,
           eventId: true,
-          userId: true,
-          createdAt: true,
+          applier: true,
+          additionalMessage: true,
+          companyName: true,
+          companyEmail: true,
+          status: true,
+          applicationDate: true,
         },
       });
+    });
+
+    it('leaves an absent company as null', async () => {
+      prisma.hackathonEvent.findUnique.mockResolvedValue(OPEN_EVENT);
+      prisma.applications.create.mockResolvedValue({ id: 'app_1' });
+
+      await service.register('event_1', applicant(), {
+        additionalMessage: 'I build things.',
+      });
+
+      expect(prisma.applications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            companyName: null,
+            companyEmail: null,
+          }),
+        }),
+      );
+    });
+
+    it('refuses a message that is only whitespace', async () => {
+      prisma.hackathonEvent.findUnique.mockResolvedValue(OPEN_EVENT);
+
+      await expect(
+        service.register('event_1', applicant(), { additionalMessage: '   ' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.applications.create).not.toHaveBeenCalled();
     });
 
     it('refuses an event that is not published', async () => {
@@ -303,9 +386,11 @@ describe('EventsService', () => {
       });
 
       await expect(
-        service.register('event_1', 'user_1'),
+        service.register('event_1', applicant(), {
+          additionalMessage: 'I build things.',
+        }),
       ).rejects.toBeInstanceOf(BadRequestException);
-      expect(prisma.eventRegistration.create).not.toHaveBeenCalled();
+      expect(prisma.applications.create).not.toHaveBeenCalled();
     });
 
     it('refuses once registration has closed', async () => {
@@ -315,17 +400,21 @@ describe('EventsService', () => {
       });
 
       await expect(
-        service.register('event_1', 'user_1'),
+        service.register('event_1', applicant(), {
+          additionalMessage: 'I build things.',
+        }),
       ).rejects.toThrow('Registration for this event has closed.');
-      expect(prisma.eventRegistration.create).not.toHaveBeenCalled();
+      expect(prisma.applications.create).not.toHaveBeenCalled();
     });
 
-    it('answers 409 when the place is already taken by this account', async () => {
+    it('answers 409 when this account already applied', async () => {
       prisma.hackathonEvent.findUnique.mockResolvedValue(OPEN_EVENT);
-      prisma.eventRegistration.create.mockRejectedValue(uniqueViolation());
+      prisma.applications.create.mockRejectedValue(uniqueViolation());
 
       await expect(
-        service.register('event_1', 'user_1'),
+        service.register('event_1', applicant(), {
+          additionalMessage: 'I build things.',
+        }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -333,29 +422,141 @@ describe('EventsService', () => {
       prisma.hackathonEvent.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.register('missing', 'user_1'),
+        service.register('missing', applicant(), {
+          additionalMessage: 'I build things.',
+        }),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('queues a notice to every admin when the application is created', async () => {
+      prisma.hackathonEvent.findUnique.mockResolvedValue(OPEN_EVENT);
+      prisma.applications.create.mockResolvedValue({ id: 'app_1' });
+      prisma.user.findMany.mockResolvedValue([{ id: 'admin_1' }]);
+
+      await service.register('event_1', applicant(), {
+        additionalMessage: 'I build things.',
+      });
+
+      expect(notifications.notify).toHaveBeenCalledWith([
+        {
+          senderId: 'user_1',
+          receiverId: 'admin_1',
+          message: 'Avery Jumps applied to Winter Jam',
+          data: {
+            kind: 'event.registration',
+            eventId: 'event_1',
+            applicationId: 'app_1',
+            link: '/admin/dashboard/hackathon/registrations?id=event_1&registrationId=app_1',
+          },
+        },
+      ]);
+    });
+
+    it('queues nothing when there are no admins', async () => {
+      prisma.hackathonEvent.findUnique.mockResolvedValue(OPEN_EVENT);
+      prisma.applications.create.mockResolvedValue({ id: 'app_1' });
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.register('event_1', applicant(), {
+        additionalMessage: 'I build things.',
+      });
+
+      expect(notifications.notify).not.toHaveBeenCalled();
     });
   });
 
   describe('listRegistrations', () => {
-    it('lists the event’s registrations newest first with the participant', async () => {
+    beforeEach(() => {
       prisma.hackathonEvent.findUnique.mockResolvedValue({ id: 'event_1' });
-      prisma.eventRegistration.findMany.mockResolvedValue([]);
+    });
 
-      await service.listRegistrations('event_1');
+    it('answers page one of ten by default', async () => {
+      prisma.applications.count.mockResolvedValue(0);
+      prisma.applications.findMany.mockResolvedValue([]);
 
-      expect(prisma.eventRegistration.findMany).toHaveBeenCalledWith({
-        where: { eventId: 'event_1' },
-        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-        select: {
-          id: true,
-          createdAt: true,
-          user: {
-            select: { id: true, name: true, email: true, image: true },
-          },
-        },
+      await expect(service.listRegistrations('event_1')).resolves.toEqual({
+        items: [],
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 1,
+        registrationId: null,
       });
+      expect(prisma.applications.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { eventId: 'event_1' },
+          orderBy: [{ applicationDate: 'desc' }, { id: 'asc' }],
+          skip: 0,
+          take: 10,
+        }),
+      );
+    });
+
+    it('honours the requested page and limit', async () => {
+      prisma.applications.count.mockResolvedValue(45);
+      prisma.applications.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.listRegistrations('event_1', { page: 2, limit: 20 }),
+      ).resolves.toMatchObject({
+        page: 2,
+        limit: 20,
+        total: 45,
+        totalPages: 3,
+      });
+      expect(prisma.applications.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 20, take: 20 }),
+      );
+    });
+
+    it('lands on the last page when the requested one is past the end', async () => {
+      prisma.applications.count.mockResolvedValue(5);
+      prisma.applications.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.listRegistrations('event_1', { page: 99 }),
+      ).resolves.toMatchObject({ page: 1, totalPages: 1 });
+      expect(prisma.applications.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 10 }),
+      );
+    });
+
+    it('returns the page that holds a given registrationId', async () => {
+      const applicationDate = new Date('2026-11-16T10:00:00.000Z');
+      prisma.applications.count
+        .mockResolvedValueOnce(35)
+        .mockResolvedValueOnce(12);
+      prisma.applications.findFirst.mockResolvedValue({
+        applicationDate,
+        id: 'app_12',
+      });
+      prisma.applications.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.listRegistrations('event_1', {
+          page: 1,
+          limit: 10,
+          registrationId: 'app_12',
+        }),
+      ).resolves.toMatchObject({ page: 2, registrationId: 'app_12' });
+
+      expect(prisma.applications.findFirst).toHaveBeenCalledWith({
+        where: { id: 'app_12', eventId: 'event_1' },
+        select: { applicationDate: true, id: true },
+      });
+      expect(prisma.applications.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+    });
+
+    it('raises 404 when the registrationId is not on this event', async () => {
+      prisma.applications.count.mockResolvedValue(3);
+      prisma.applications.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.listRegistrations('event_1', { registrationId: 'app_404' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.applications.findMany).not.toHaveBeenCalled();
     });
 
     it('raises 404 for an unknown event', async () => {
@@ -364,12 +565,13 @@ describe('EventsService', () => {
       await expect(
         service.listRegistrations('missing'),
       ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.applications.findMany).not.toHaveBeenCalled();
     });
   });
 
   describe('create', () => {
     it('stores trimmed text, no deadline, and the admin who created it', async () => {
-      prisma.hackathonEvent.create.mockResolvedValue({ id: 'event_1', _count: { registrations: 0 } });
+      prisma.hackathonEvent.create.mockResolvedValue({ id: 'event_1', _count: { applications: 0 } });
 
       await service.create(eventInput(), 'user_1');
 
@@ -391,7 +593,7 @@ describe('EventsService', () => {
     });
 
     it('stores the uploaded image URLs in the order they were attached', async () => {
-      prisma.hackathonEvent.create.mockResolvedValue({ id: 'event_1', _count: { registrations: 0 } });
+      prisma.hackathonEvent.create.mockResolvedValue({ id: 'event_1', _count: { applications: 0 } });
       const imageUrls = [
         '/bucket/event_images/one.png',
         '/bucket/event_images/two.jpg',
@@ -407,7 +609,7 @@ describe('EventsService', () => {
     });
 
     it('stores a trimmed background image URL, or null for none', async () => {
-      prisma.hackathonEvent.create.mockResolvedValue({ id: 'event_1', _count: { registrations: 0 } });
+      prisma.hackathonEvent.create.mockResolvedValue({ id: 'event_1', _count: { applications: 0 } });
 
       await service.create(
         eventInput({ backgroundUrl: '  /bucket/event_images/wide.jpg  ' }),
@@ -461,7 +663,7 @@ describe('EventsService', () => {
         endsAt: new Date(ENDS_AT),
         registrationDeadline: new Date('2026-11-20T00:00:00.000Z'),
       });
-      prisma.hackathonEvent.update.mockResolvedValue({ id: 'event_1', _count: { registrations: 0 } });
+      prisma.hackathonEvent.update.mockResolvedValue({ id: 'event_1', _count: { applications: 0 } });
     });
 
     it('keeps the stored schedule when only the title changes', async () => {
@@ -556,8 +758,8 @@ describe('EventsService', () => {
 
   describe('replace', () => {
     beforeEach(() => {
-      prisma.hackathonEvent.findUnique.mockResolvedValue({ id: 'event_1', _count: { registrations: 0 } });
-      prisma.hackathonEvent.update.mockResolvedValue({ id: 'event_1', _count: { registrations: 0 } });
+      prisma.hackathonEvent.findUnique.mockResolvedValue({ id: 'event_1', _count: { applications: 0 } });
+      prisma.hackathonEvent.update.mockResolvedValue({ id: 'event_1', _count: { applications: 0 } });
     });
 
     it('writes every column, trimming the text', async () => {
@@ -618,8 +820,8 @@ describe('EventsService', () => {
 
   describe('remove', () => {
     it('deletes the event and lets its sponsorships cascade', async () => {
-      prisma.hackathonEvent.findUnique.mockResolvedValue({ id: 'event_1', _count: { registrations: 0 } });
-      prisma.hackathonEvent.delete.mockResolvedValue({ id: 'event_1', _count: { registrations: 0 } });
+      prisma.hackathonEvent.findUnique.mockResolvedValue({ id: 'event_1', _count: { applications: 0 } });
+      prisma.hackathonEvent.delete.mockResolvedValue({ id: 'event_1', _count: { applications: 0 } });
 
       await service.remove('event_1');
 
@@ -639,7 +841,7 @@ describe('EventsService', () => {
 
   describe('addSponsor', () => {
     beforeEach(() => {
-      prisma.hackathonEvent.findUnique.mockResolvedValue({ id: 'event_1', _count: { registrations: 0 } });
+      prisma.hackathonEvent.findUnique.mockResolvedValue({ id: 'event_1', _count: { applications: 0 } });
     });
 
     it('reuses a company already on file whatever its casing', async () => {

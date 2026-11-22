@@ -11,11 +11,25 @@ export type RegistrationStatus = {
   open: boolean;
 };
 
-export type EventRegistration = {
+/** What the participant writes when they apply for a place. */
+export type RegistrationInput = {
+  additionalMessage: string;
+  companyName?: string;
+  companyEmail?: string;
+};
+
+export type ApplicationStatus = 'IN_PROGRESS' | 'INTERVIEW' | 'REJECTED';
+
+/** The application row the API returns after the caller applies. */
+export type EventApplication = {
   id: string;
   eventId: string;
-  userId: string;
-  createdAt: string;
+  applier: string;
+  additionalMessage: string;
+  companyName: string | null;
+  companyEmail: string | null;
+  status: ApplicationStatus;
+  applicationDate: string;
 };
 
 export const registrationKeys = {
@@ -32,10 +46,16 @@ export function getRegistrationStatus(
   );
 }
 
-/** Takes a place at the event. A second call is a server-side 409. */
-export function registerForEvent(eventId: string): Promise<EventRegistration> {
-  return apiFetch<EventRegistration>(
+/** Applies for a place at the event. A second application is a 409. */
+export function registerForEvent(
+  eventId: string,
+  input: RegistrationInput,
+): Promise<EventApplication> {
+  return apiFetch<EventApplication>(
     `/events/${encodeURIComponent(eventId)}/registrations`,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
   );
 }

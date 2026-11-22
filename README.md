@@ -1,8 +1,8 @@
 # Hackathon Portal
 
-A full stack hackathon portal: a public event calendar, one click registration for signed in
-participants, and an admin console for creating events, attaching sponsors, and reading who
-registered.
+A full stack hackathon portal: a public event calendar, application based registration for signed
+in participants, and an admin console for creating events, attaching sponsors, and reading who
+applied.
 
 Two independent packages live side by side. There is no root `package.json` and no shared
 `node_modules`; every command runs inside `client/` or `server/`.
@@ -42,8 +42,8 @@ belong in the owning feature's CSS or in `client/src/index.css`.
 │   │   ├── features/         one folder per product area
 │   │   │   ├── auth/         sign in, sign up, guards, session, auth store
 │   │   │   ├── home/         the landing page and the calendar
-│   │   │   ├── hackathon/    public event list, detail page, registration
-│   │   │   ├── admin/        dashboard, event forms, ledger, registrations
+│   │   │   ├── hackathon/    public event list, detail page, application form
+│   │   │   ├── admin/        dashboard, event forms, ledger, applications drawer
 │   │   │   └── messages/     global message queue
 │   │   ├── lib/              api client, session api, query client, helpers
 │   │   ├── index.css         design tokens, base layer, shared classes
@@ -84,9 +84,10 @@ only genuinely shared pieces move up to `components/` or `lib/`.
 | `components/` | `AppNav`, `TextField`, `TextAreaField`, `PasswordField`, `Combobox`, `ConfirmDialog`, `StatusScreen`, `LightRays` |
 | `features/auth/` | Login and signup screens, `RequireSession` / `RequireAdmin` / `RedirectIfAuthenticated`, the session query, the Zustand identity mirror |
 | `features/home/` | The landing page: what the portal is, how it works, and the event calendar |
-| `features/hackathon/` | Public calendar and cards, the event page, the image lightbox, description rendering, the Register action |
-| `features/admin/` | Dashboard, create and edit forms, sponsor picker, image and background fields, the event ledger, the registrations drawer |
+| `features/hackathon/` | Public calendar and cards, the event page, the image lightbox, description rendering, the Register action with its application form |
+| `features/admin/` | Dashboard, create and edit forms, sponsor picker, image and background fields, the event ledger, the applications drawer, the registrations page |
 | `features/messages/` | The global message store and the animated stack |
+| `features/notifications/` | The unread inbox API, the notice bell in the nav bar, and the realtime websocket client |
 | `lib/` | `apiFetch` (Bearer token plus one refresh on `401`), session API, Better Auth client, query client, error mapping, description parser, date formatting, validation rules |
 
 Data fetching rules that matter when adding a screen:
@@ -105,10 +106,11 @@ Routes:
 | Path | Access | Screen |
 | --- | --- | --- |
 | `/` | signed in | Home: product explanation and calendar |
-| `/hackathon?id=<eventId>` | public | Event page, with Register for signed in participants |
+| `/hackathon?id=<eventId>` | public | Event page, with Register (an application form) for signed in participants |
 | `/admin/dashboard` | admin | Event ledger |
 | `/admin/dashboard/hackathon/create` | admin | Create event |
 | `/admin/dashboard/hackathon/edit?id=<eventId>` | admin | Edit event |
+| `/admin/dashboard/hackathon/registrations?id=<eventId>` | admin | Full registrations page for one event |
 | `/login`, `/signup` | anonymous | Auth screens |
 
 ## Server
@@ -120,10 +122,11 @@ and `PrismaService` owns persistence.
 | --- | --- |
 | `auth/` | Mounts Better Auth at `/auth`, sends verification and reset mail through the queue |
 | `auth/session/` | Mints the 15 minute access and 7 day refresh JWTs, sets cookies, guards routes, serves `/session/*` |
-| `events/` | Public event reads, registration status and registration, sponsor and event writes |
-| `admin/` | `@Roles(['admin'])` controllers for events, sponsors, companies, registrations, ping |
+| `events/` | Public event reads, registration status, applications, sponsor and event writes |
+| `admin/` | `@Roles(['admin'])` controllers for events, sponsors, companies, applications, ping |
 | `uploads/` | Multipart image upload under multer, writes to `bucket/event_images/` |
 | `mail/` | BullMQ queue producer, worker, templates, SMTP and log transports |
+| `notifications/` | Notice inbox: REST list, socket gateway, producer (`NotificationsService.notify`) and the worker that stores rows and broadcasts |
 | `prisma/` | The single `PrismaService` |
 | `config/` | Environment validation and the Redis connection |
 
@@ -141,14 +144,17 @@ There is no global route prefix.
 | `GET` | `/events` | public | Published and completed events |
 | `GET` | `/events/:id` | public | One public event, sponsors included |
 | `GET` | `/events/:id/registration` | signed in | `{ registered, registeredAt, open }` |
-| `POST` | `/events/:id/registrations` | signed in | Take a place; `409` if already held |
+| `POST` | `/events/:id/registrations` | signed in | Apply with a required message; `409` if already applied |
 | `GET` | `/admin/events` | admin | Every event, drafts included, with `registrationCount` |
 | `POST` | `/admin/events` | admin | Create an event |
 | `GET` | `/admin/events/:id` | admin | Read one event whatever its status |
 | `PUT` | `/admin/events/:id` | admin | Replace the whole event (the edit form) |
 | `PATCH` | `/admin/events/:id` | admin | Partial update (the publish toggle) |
 | `DELETE` | `/admin/events/:id` | admin | Delete an event |
-| `GET` | `/admin/events/:id/registrations` | admin | Registrants, newest first |
+| `GET` | `/notifications` | signed in | Unread rows, newest first, plus `unreadCount` |
+| `PATCH` | `/notifications/:id/read` | signed in | Mark one unread row read |
+| `POST` | `/notifications/read-all` | signed in | Mark every unread row read; answers `{ count }` |
+| `GET` | `/admin/events/:id/registrations` | admin | One page of applications; `page`, `limit` (10–100 in tens), `registrationId` |
 | `POST` | `/admin/events/:id/sponsors` | admin | Attach a sponsor |
 | `PATCH` | `/admin/events/:id/sponsors/:sponsorId` | admin | Update a sponsor |
 | `DELETE` | `/admin/events/:id/sponsors/:sponsorId` | admin | Detach a sponsor |
@@ -161,17 +167,23 @@ There is no global route prefix.
 other application route accepts only `Authorization: Bearer <accessToken>`; the Better Auth
 cookie is not a second way in.
 
+Websocket: `NotificationsGateway` serves the default socket.io namespace on the same origin. The
+handshake carries the access JWT in `auth.token`, verified like a request token; unknown or
+banned users are dropped before they join. Each user joins a `user:<id>` room, so new rows arrive
+as `notification:new`, read changes as `notification:read` (the client sends `{ ids }` back for
+marks the REST endpoint could not take), and the count changes as `notification:unreadCount`.
+
 ### Data model
 
 | Model | Meaning |
 | --- | --- |
 | `User` | Account with `participant` or `admin` role, verification and ban fields |
+| `Notification` | One user's message from the portal: `senderId` (null for the system), `receiverId`, the `data` payload, `message`, `read`, `createdAt` |
 | `Session`, `Account` | Better Auth records |
-| `Applications` | The original job application table, untouched by events |
+| `Applications` | A participant's application for one event: required message, optional company; unique `(eventId, applier)` |
 | `HackathonEvent` | Title, description, schedule, deadline, location, images, status |
 | `Company` | A sponsor organisation |
 | `Sponsor` | Joins a `Company` to an event with a tier and contribution |
-| `EventRegistration` | One participant's place at one event; unique `(eventId, userId)` |
 
 Event status is `DRAFT`, `PUBLISHED`, `COMPLETED`, or `CANCELLED`. Only `PUBLISHED` and
 `COMPLETED` are visible to visitors. Whether registration is open is decided on the server's
@@ -251,7 +263,7 @@ npm run build
 ## Documentation
 
 - `server/docs/specs/` holds numbered design records: auth, tokens, events and sponsors, async
-  email, and event registration. Update the relevant spec when behavior changes.
+  email, and event applications. Update the relevant spec when behavior changes.
 - `server/docs/scope/scope.md` is the feature checklist.
 - `AGENTS.md`, `client/AGENTS.md`, and `server/AGENTS.md` are the working rules for each
   package. Read the one that matches the code before editing.

@@ -50,6 +50,14 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Websocket messages run the same global guards as HTTP, but the HTTP
+    // request the JWT guard reads is undefined here: the gateway authenticates
+    // socket connections itself (the handshake token), so there is nothing to
+    // verify and passing through is what lets the gateway's handlers run.
+    if (context.getType() === 'ws') {
+      return true;
+    }
+
     const handler = context.getHandler();
     const controller = context.getClass();
     const isPublic =

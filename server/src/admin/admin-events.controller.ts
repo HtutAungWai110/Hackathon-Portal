@@ -8,12 +8,14 @@ import {
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { Roles } from '@thallesp/nestjs-better-auth';
 import { CurrentUser } from '../auth/session/current-user.decorator.js';
 import type { PublicUser } from '../auth/session/public-user.js';
 import { CreateEventDto } from '../events/dto/create-event.dto.js';
 import { CreateSponsorDto } from '../events/dto/create-sponsor.dto.js';
+import { ListRegistrationsQueryDto } from '../events/dto/list-registrations-query.dto.js';
 import { ReplaceEventDto } from '../events/dto/replace-event.dto.js';
 import { UpdateEventDto } from '../events/dto/update-event.dto.js';
 import { UpdateSponsorDto } from '../events/dto/update-sponsor.dto.js';
@@ -47,10 +49,13 @@ export class AdminEventsController {
     return this.events.listCompanies();
   }
 
-  /** The people who registered, newest first. Fetched when a row expands. */
+  /** One page of this event's applications, newest first. */
   @Get('events/:id/registrations')
-  registrations(@Param('id') id: string) {
-    return this.events.listRegistrations(id);
+  registrations(
+    @Param('id') id: string,
+    @Query() query: ListRegistrationsQueryDto,
+  ) {
+    return this.events.listRegistrations(id, query);
   }
 
   @Post('events')

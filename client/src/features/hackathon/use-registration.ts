@@ -6,6 +6,10 @@ import {
   registerForEvent,
   registrationKeys,
 } from './registration-api';
+import type {
+  RegistrationInput,
+  RegistrationStatus,
+} from './registration-api';
 
 /**
  * The signed in participant's place at one event. Disabled until the session
@@ -23,21 +27,34 @@ export function useRegistrationStatus(eventId: string, enabled: boolean) {
 }
 
 /**
- * Registering writes one row, so it reports through the global message queue
- * and then refreshes the status query the button is rendered from.
+ * Applying writes one row, so it reports through the global message queue. The
+ * status query is updated before it is invalidated: the page switches to the
+ * registered state on the same frame instead of flashing the form again while
+ * the refetch runs.
  */
 export function useRegisterForEvent(eventId: string, eventTitle: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => registerForEvent(eventId),
-    onSuccess: async () => {
+    mutationFn: (input: RegistrationInput) => registerForEvent(eventId, input),
+    onSuccess: (application) => {
+      queryClient.setQueryData<RegistrationStatus>(
+        registrationKeys.status(eventId),
+        (current) =>
+          current === undefined
+            ? current
+            : {
+                ...current,
+                registered: true,
+                registeredAt: application.applicationDate,
+              },
+      );
       pushMessage({
         tone: 'success',
-        title: 'You are registered',
-        body: `Your place at ${eventTitle} is held.`,
+        title: 'Application sent',
+        body: `Your application for ${eventTitle} is with the organiser.`,
       });
-      await queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: registrationKeys.all,
       });
     },

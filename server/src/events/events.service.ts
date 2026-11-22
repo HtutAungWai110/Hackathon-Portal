@@ -2,12 +2,17 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
+import type { PublicUser } from '../auth/session/public-user.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateEventDto } from './dto/create-event.dto.js';
+import type { CreateRegistrationDto } from './dto/create-registration.dto.js';
 import type { CreateSponsorDto } from './dto/create-sponsor.dto.js';
+import type { ListRegistrationsQueryDto } from './dto/list-registrations-query.dto.js';
 import type { ReplaceEventDto } from './dto/replace-event.dto.js';
 import type { UpdateEventDto } from './dto/update-event.dto.js';
 import type { UpdateSponsorDto } from './dto/update-sponsor.dto.js';
@@ -21,13 +26,49 @@ const SPONSORS = {
 } satisfies Prisma.HackathonEventInclude;
 
 /**
- * The console read also carries how many people registered, so a collapsed row
- * can say so before the registrations themselves are fetched.
+ * The console read also carries how many people applied, so a collapsed row
+ * can say so before the applications themselves are fetched.
  */
 const ADMIN_INCLUDE = {
   ...SPONSORS,
-  _count: { select: { registrations: true } },
+  _count: { select: { applications: true } },
 } satisfies Prisma.HackathonEventInclude;
+
+/**
+ * One console page of applications. `applicationDate` and then `id` make the
+ * order total, so a page boundary never repeats or skips a row.
+ */
+const APPLICATION_ORDER = [
+  { applicationDate: 'desc' },
+  { id: 'asc' },
+] satisfies Prisma.ApplicationsOrderByWithRelationInput[];
+
+const APPLICATION_SELECT = {
+  id: true,
+  additionalMessage: true,
+  companyName: true,
+  companyEmail: true,
+  status: true,
+  applicationDate: true,
+  user: {
+    select: { id: true, name: true, email: true, image: true },
+  },
+} satisfies Prisma.ApplicationsSelect;
+
+export type ConsoleApplication = Prisma.ApplicationsGetPayload<{
+  select: typeof APPLICATION_SELECT;
+}>;
+
+/** One page of an event's applications, with enough to render a pager. */
+export type PaginatedApplications = {
+  items: ConsoleApplication[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  /** Echoed back when the caller asked for a specific row's page. */
+  registrationId: string | null;
+};
 
 /** Statuses a visitor may see. Drafts and cancellations stay internal. */
 const PUBLIC_STATUSES = ['PUBLISHED', 'COMPLETED'] as const;
@@ -51,7 +92,11 @@ export type AdminEvent = Omit<AdminEventRow, '_count'> & {
 
 function toAdminEvent(row: AdminEventRow): AdminEvent {
   const { _count, ...event } = row;
-  return { ...event, registrationCount: _count.registrations };
+  return { ...event, registrationCount: _count.applications };
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function parseDate(value: string, field: string): Date {
@@ -102,7 +147,12 @@ function optionalText(value: string | undefined): string | null {
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(EventsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   /** The public calendar: published and finished events, soonest first. */
   list(): Promise<EventWithSponsors[]> {
@@ -174,9 +224,9 @@ export class EventsService {
       throw new NotFoundException('No event with that id.');
     }
 
-    const registration = await this.prisma.eventRegistration.findUnique({
-      where: { eventId_userId: { eventId, userId } },
-      select: { createdAt: true },
+    const application = await this.prisma.applications.findUnique({
+      where: { eventId_applier: { eventId, applier: userId } },
+      select: { applicationDate: true },
     });
 
     const now = Date.now();
@@ -184,8 +234,8 @@ export class EventsService {
       event.registrationDeadline !== null &&
       event.registrationDeadline.getTime() <= now;
     return {
-      registered: registration !== null,
-      registeredAt: registration?.createdAt ?? null,
+      registered: application !== null,
+      registeredAt: application?.applicationDate ?? null,
       // The event page promises "open until the event starts" when no deadline
       // is set, so the start is the closing time in that case.
       open:
@@ -196,14 +246,18 @@ export class EventsService {
   }
 
   /**
-   * A participant takes a place at an event. The unique pair makes a repeated
-   * click a conflict rather than a second registration, which is also what
-   * protects against two tabs racing.
+   * A participant applies for a place at an event. The unique pair makes a
+   * repeated submission a conflict rather than a second application, which is
+   * also what protects against two tabs racing.
    */
-  async register(eventId: string, userId: string) {
+  async register(
+    eventId: string,
+    user: PublicUser,
+    input: CreateRegistrationDto,
+  ) {
     const event = await this.prisma.hackathonEvent.findUnique({
       where: { id: eventId },
-      select: { status: true, startsAt: true, registrationDeadline: true },
+      select: { status: true, startsAt: true, registrationDeadline: true, title: true },
     });
     if (event === null) {
       throw new NotFoundException('No event with that id.');
@@ -221,15 +275,53 @@ export class EventsService {
       throw new BadRequestException('Registration for this event has closed.');
     }
 
+    const additionalMessage = input.additionalMessage.trim();
+    if (additionalMessage.length === 0) {
+      throw new BadRequestException(
+        'Tell the organiser why you are a capable member for the team.',
+      );
+    }
+
     try {
-      return await this.prisma.eventRegistration.create({
-        data: { eventId, userId },
-        select: { id: true, eventId: true, userId: true, createdAt: true },
+      const created = await this.prisma.applications.create({
+        data: {
+          eventId,
+          applier: user.id,
+          additionalMessage,
+          companyName: optionalText(input.companyName),
+          companyEmail: optionalText(input.companyEmail),
+        },
+        select: {
+          id: true,
+          eventId: true,
+          applier: true,
+          additionalMessage: true,
+          companyName: true,
+          companyEmail: true,
+          status: true,
+          applicationDate: true,
+        },
       });
+
+      // A queued notice is a best-effort side of the API: the application
+      // stands on its own, so a Redis hiccup logs instead of turning a
+      // successful registration into a failure.
+      try {
+        await this.announceRegistration(
+          user,
+          { id: eventId, title: event.title },
+          created.id,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Could not queue registrations notification for ${eventId}: ${describeError(error)}`,
+        );
+      }
+      return created;
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new ConflictException(
-          'You are already registered for this event.',
+          'You have already applied for this event.',
         );
       }
       throw error;
@@ -237,22 +329,105 @@ export class EventsService {
   }
 
   /**
-   * The console's registrations list for one event. The participant's name and
-   * email are the point of it; nothing else about the account is exposed.
+   * The application created its row; tell every admin who can review it so
+   * the inbox fills from the portal, not from someone's inbox.
    */
-  async listRegistrations(eventId: string) {
-    await this.requireEvent(eventId);
-    return this.prisma.eventRegistration.findMany({
-      where: { eventId },
-      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        createdAt: true,
-        user: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-      },
+  private async announceRegistration(
+    user: Pick<PublicUser, 'id' | 'name'>,
+    event: { id: string; title: string },
+    applicationId: string,
+  ): Promise<void> {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'admin' },
+      select: { id: true },
     });
+    if (admins.length === 0) {
+      return;
+    }
+    await this.notifications.notify(
+      admins.map((admin) => ({
+        senderId: user.id,
+        receiverId: admin.id,
+        message: `${user.name} applied to ${event.title}`,
+        data: {
+          kind: 'event.registration',
+          eventId: event.id,
+          applicationId,
+          // The deep link into the console: same shape as the public edit
+          // link — `?id=` for the event, and `registrationId` for the row,
+          // so the admin lands on the page holding this application.
+          link: `/admin/dashboard/hackathon/registrations?id=${encodeURIComponent(event.id)}&registrationId=${applicationId}`,
+        },
+      })),
+    );
+  }
+
+  /**
+   * One page of the console's applications list for an event. The message is
+   * the point of it: it is where the participant argues they belong on a team.
+   *
+   * With `registrationId` the caller is returning to a row it already knows.
+   * The service finds that row's position in the same order the pages use and
+   * answers the page holding it, so the caller does not have to guess.
+   */
+  async listRegistrations(
+    eventId: string,
+    query: ListRegistrationsQueryDto = {},
+  ): Promise<PaginatedApplications> {
+    await this.requireEvent(eventId);
+
+    const limit = query.limit ?? 10;
+    const registrationId = query.registrationId?.trim() || null;
+    const total = await this.prisma.applications.count({ where: { eventId } });
+    // An event with no applications still has page one; there is nowhere else
+    // to land, and the client should not have to special case zero.
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    let page: number;
+    if (registrationId !== null) {
+      const target = await this.prisma.applications.findFirst({
+        where: { id: registrationId, eventId },
+        select: { applicationDate: true, id: true },
+      });
+      if (target === null) {
+        throw new NotFoundException(
+          'No application with that id on this event.',
+        );
+      }
+      // How many rows sort before the target: that many rows then divide into
+      // pages tells us which page holds it.
+      const before = await this.prisma.applications.count({
+        where: {
+          eventId,
+          OR: [
+            { applicationDate: { gt: target.applicationDate } },
+            { applicationDate: target.applicationDate, id: { lt: target.id } },
+          ],
+        },
+      });
+      page = Math.floor(before / limit) + 1;
+    } else {
+      // A row can disappear between reads; land on the last page rather than
+      // answer an empty page past the end.
+      page = Math.min(query.page ?? 1, totalPages);
+    }
+
+    const items = await this.prisma.applications.findMany({
+      where: { eventId },
+      orderBy: APPLICATION_ORDER,
+      skip: (page - 1) * limit,
+      take: limit,
+      select: APPLICATION_SELECT,
+    });
+
+    return {
+      items,
+      page,
+      limit,
+      total,
+      totalPages,
+      registrationId,
+    };
   }
 
   async create(input: CreateEventDto, createdById: string): Promise<AdminEvent> {

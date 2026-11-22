@@ -1,6 +1,8 @@
 import { Link, NavLink, useNavigate } from 'react-router';
 import { authErrorMessage } from '../lib/auth-error';
 import { useSession, useSignOut } from '../features/auth/session';
+import { NotificationsBell } from '../features/notifications/NotificationsBell';
+import { useNotificationSocket } from '../features/notifications/use-notification-socket';
 import './AppNav.css';
 
 function linkClass({ isActive }: { isActive: boolean }): string {
@@ -20,6 +22,10 @@ export function AppNav() {
   const user = session.data?.user ?? null;
   const signOut = useSignOut();
   const navigate = useNavigate();
+
+  // Online or not, the inbox falls back to the REST query; the socket makes
+  // it live while a connection exists.
+  useNotificationSocket(user?.id ?? null);
 
   async function handleSignOut() {
     try {
@@ -53,6 +59,7 @@ export function AppNav() {
           {user !== null ? (
             <>
               <span className="app-nav__user">{user.name}</span>
+              <NotificationsBell />
               <button
                 className="button button--quiet button--inverse"
                 type="button"

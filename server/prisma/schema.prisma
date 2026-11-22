@@ -7,16 +7,25 @@ datasource db {
   provider = "postgresql"
 }
 
+/// One participant's application for one event. The unique pair is the rule:
+/// applying twice is the same place, not a second row.
 model Applications {
-  id              String            @id
-  companyName     String
-  companyEmail    String
-  applier         String
-  applicationDate DateTime          @default(now())
-  lastUpdated     DateTime          @default(now())
-  status          ApplicationStatus @default(IN_PROGRESS)
-  position        String
-  User            User              @relation(fields: [applier], references: [id], onDelete: Cascade)
+  id                String            @id @default(cuid())
+  eventId           String
+  applier           String
+  /// What the organiser reads first: why this person belongs on a team.
+  additionalMessage String
+  companyName       String?
+  companyEmail      String?
+  applicationDate   DateTime          @default(now())
+  lastUpdated       DateTime          @default(now())
+  status            ApplicationStatus @default(IN_PROGRESS)
+  user              User              @relation(fields: [applier], references: [id], onDelete: Cascade)
+  event             HackathonEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, applier])
+  @@index([eventId, applicationDate])
+  @@index([applier])
 }
 
 model User {
@@ -33,9 +42,9 @@ model User {
   updatedAt           DateTime       @updatedAt
   sessions            Session[]
   accounts            Account[]
-  Applications        Applications[]
+  applications        Applications[]
   createdEvents       HackathonEvent[]
-  eventRegistrations  EventRegistration[]
+  notifications       Notification[]
 }
 
 model Session {
@@ -102,6 +111,28 @@ enum SponsorTier {
   CO_SPONSOR
 }
 
+/// One account's message to another: who sent it (null for the system), to
+/// whom, the rendered text and a payload the console can act on, the unread
+/// state, and the timestamp it first arrived in the consumer's inbox.
+model Notification {
+  id         String    @id @default(cuid())
+  senderId   String?
+  receiverId String
+  /// The payload: `kind` for what the console does with it, plus the row's
+  /// address (`id` of the application, event, and so on). Modeled as JSON so
+  /// new kinds do not change the table.
+  data       Json
+  message    String
+  read       Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user       User?     @relation(fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([receiverId, read, createdAt])
+  @@index([receiverId, id])
+}
+
 /// An event the portal hosts. Only PUBLISHED events are listed publicly; the
 /// rest are visible to admins while they are being prepared.
 model HackathonEvent {
@@ -126,25 +157,10 @@ model HackathonEvent {
   updatedAt            DateTime      @updatedAt
   createdBy            User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
   sponsors             Sponsor[]
-  registrations        EventRegistration[]
+  applications         Applications[]
 
   @@index([status, startsAt])
   @@index([createdById])
-}
-
-/// One participant holding a place at one event. The unique pair is the rule:
-/// clicking Register twice is the same registration, not a second row.
-model EventRegistration {
-  id        String         @id @default(cuid())
-  eventId   String
-  userId    String
-  createdAt DateTime       @default(now())
-  event     HackathonEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([eventId, userId])
-  @@index([eventId, createdAt])
-  @@index([userId])
 }
 
 /// A company that can sponsor events. One row, reused across every event it

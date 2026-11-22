@@ -174,6 +174,45 @@
   color: var(--color-muted);
 }
 
+/* Registration is an application, so the form is a small dossier: the
+   introduction first, then the optional company, then the send. */
+.hackathon-registration-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(100%, 620px);
+  margin-top: 4px;
+  padding: 18px;
+  border: 2px solid var(--color-line-strong);
+  background: var(--color-card);
+  box-shadow: 6px 6px 0 #000;
+}
+
+.hackathon-registration-form__intro {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--color-muted);
+}
+
+.hackathon-registration-form__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hackathon-registration-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 620px) {
+  .hackathon-registration-form__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .hackathon-registration-note {
   max-width: 52ch;
   padding: 8px 10px;

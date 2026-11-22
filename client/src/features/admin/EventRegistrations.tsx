@@ -1,8 +1,10 @@
 import { useId, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
+import { Link } from 'react-router';
 import { authErrorMessage } from '../../lib/auth-error';
 import { useEventRegistrations } from './use-event-registrations';
 import { RegistrationCard } from './RegistrationCard';
+import { registrationsPath } from './paths';
 
 type EventRegistrationsProps = {
   eventId: string;
@@ -22,8 +24,11 @@ export function EventRegistrations({
 }: EventRegistrationsProps) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
-  const registrations = useEventRegistrations(eventId, open);
-  const rows = registrations.data ?? [];
+  // The drawer is a preview: page one, the console's default page size. The
+  // full screen next to it owns paging, and it is one link away.
+  const applications = useEventRegistrations(eventId, open);
+  const rows = applications.data?.items ?? [];
+  const total = applications.data?.total ?? count;
 
   return (
     <div className="event-registrations">
@@ -38,9 +43,9 @@ export function EventRegistrations({
         aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}
       >
-        {open ? 'Hide registrations' : 'Show registrations'}
+        {open ? 'Hide applications' : 'Show applications'}
         <span className="event-registrations__count" aria-hidden="true">
-          {rows.length > 0 ? rows.length : count}
+          {total}
         </span>
       </button>
 
@@ -59,34 +64,34 @@ export function EventRegistrations({
             >
               <div className="event-registrations__inner">
                 <p className="event-registrations__label">
-                  Registrations for {eventTitle}
+                  Applications for {eventTitle}
                 </p>
 
-                {registrations.isPending ? (
+                {applications.isPending ? (
                   <p
                     className="event-registrations__note"
                     role="status"
                   >
-                    Reading registrations…
+                    Reading applications…
                   </p>
                 ) : null}
 
-                {registrations.error !== null ? (
+                {applications.error !== null ? (
                   <div className="event-registrations__error" role="alert">
-                    <p>{authErrorMessage(registrations.error)}</p>
+                    <p>{authErrorMessage(applications.error)}</p>
                     <button
                       className="button button--quiet"
                       type="button"
-                      onClick={() => void registrations.refetch()}
+                      onClick={() => void applications.refetch()}
                     >
                       Try again
                     </button>
                   </div>
                 ) : null}
 
-                {registrations.isSuccess && rows.length === 0 ? (
+                {applications.isSuccess && rows.length === 0 ? (
                   <p className="event-registrations__note">
-                    No one has registered yet.
+                    No one has applied yet.
                   </p>
                 ) : null}
 
@@ -99,6 +104,18 @@ export function EventRegistrations({
                       />
                     ))}
                   </ul>
+                ) : null}
+
+                {applications.isSuccess && total > rows.length ? (
+                  <p className="event-registrations__note">
+                    Showing the newest {rows.length} of {total}.{' '}
+                    <Link
+                      className="text-link"
+                      to={registrationsPath(eventId)}
+                    >
+                      See all applications
+                    </Link>
+                  </p>
                 ) : null}
               </div>
             </motion.div>

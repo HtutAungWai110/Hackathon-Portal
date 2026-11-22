@@ -4,29 +4,14 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
 import { ObserveInstrument } from './observe.js';
 import { BUCKET_URL_PREFIX, resolveBucketRoot } from './uploads/uploads.config.js';
-
-const DEFAULT_CLIENT_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:5137',
-];
+import { clientOrigins } from './config/client-origins.js';
 
 /**
  * The browser origins allowed to call this API. Better Auth authenticates with
  * cookies, so credentials have to travel with every cross origin request and
  * the origin list must stay explicit: a wildcard cannot be combined with
- * `credentials: true`.
+ * `credentials: true`. The websocket gateway reads the same list.
  */
-function clientOrigins(): string[] {
-  const configured = process.env.CLIENT_URL;
-  if (configured === undefined) {
-    return DEFAULT_CLIENT_ORIGINS;
-  }
-  const origins = configured
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
-  return origins.length > 0 ? origins : DEFAULT_CLIENT_ORIGINS;
-}
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {

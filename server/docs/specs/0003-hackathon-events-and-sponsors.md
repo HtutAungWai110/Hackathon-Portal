@@ -9,7 +9,8 @@ The portal becomes a place that hosts hackathons, not only one that takes applic
 create `HackathonEvent` rows and attach sponsors to them. A sponsor is a `Company` plus the
 `Sponsor` row that says which event it backs and at what tier (main sponsor or co-sponsor). The
 public calendar reads events without a token; writing the catalogue stays behind
-`@Roles(['admin'])`. The existing `Applications` table is untouched.
+`@Roles(['admin'])`. The existing `Applications` table is untouched in this slice; spec
+[0005](0005-event-registrations.md) later gives it the event relation.
 
 ## Context
 
@@ -104,6 +105,10 @@ the admin never handles a company id.
 
 `Applications` gets no event relation in this slice. Where an application belongs is a product
 decision that has not been made, and a nullable foreign key would encode a guess.
+
+**Amended**: spec [0005](0005-event-registrations.md) made that decision. `Applications.eventId`
+is now a required relation, applications are event registrations, and the separate
+`EventRegistration` table this slice's follow-on introduced was dropped.
 
 ## Rationale
 
@@ -216,7 +221,8 @@ accident; no delete route exists for companies in this slice.
 - No pagination on `GET /events`; fine at hackathon scale, wrong at a thousand events.
 
 **Neutral**:
-- `Applications` is unchanged, so applications cannot yet be attached to an event.
+- `Applications` is unchanged in this slice, so applications cannot yet be attached to an event.
+  Spec [0005](0005-event-registrations.md) later required `eventId` and dropped `position`.
 - Table names stay PascalCase (`HackathonEvent`), matching the existing `User` and
   `Applications` convention rather than the `hackathon_event` spelling in the brief.
 

@@ -29,6 +29,7 @@ function makeContext(request: Partial<Request>): ExecutionContext {
     }),
     getHandler: () => function handler() {},
     getClass: () => class Controller {},
+    getType: () => 'http',
   } as unknown as ExecutionContext;
 }
 
@@ -66,6 +67,23 @@ describe('JwtAuthGuard', () => {
     await expect(guard.canActivate(makeContext(request))).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
+  });
+
+  it('passes websocket messages through, since the gateway authenticates them', async () => {
+    // The websocket context's request is undefined; reading it is the old
+    // behavior that threw on every socket message.
+    const context = {
+      switchToHttp: () => ({
+        getRequest: () => undefined,
+        getResponse: () => ({}),
+      }),
+      getHandler: () => function handler() {},
+      getClass: () => class Controller {},
+      getType: () => 'ws',
+    } as unknown as ExecutionContext;
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(sessions.verifyAccess).not.toHaveBeenCalled();
   });
 
   it('attaches the user loaded from the database', async () => {

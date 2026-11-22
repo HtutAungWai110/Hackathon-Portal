@@ -1,12 +1,13 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { CurrentUser } from '../auth/session/current-user.decorator.js';
 import type { PublicUser } from '../auth/session/public-user.js';
+import { CreateRegistrationDto } from './dto/create-registration.dto.js';
 import { EventsService } from './events.service.js';
 
 /**
  * The event surface. Reading is how someone finds an event, so those two
- * routes are anonymous. Registration needs an account: the caller is the
+ * routes are anonymous. Applying needs an account: the caller is the
  * participant, and `@CurrentUser` turns an anonymous request on these two
  * routes into a 401.
  */
@@ -32,9 +33,9 @@ export class EventsController {
     return this.events.registrationStatus(id, user.id);
   }
 
-  /** Takes a place at a published event. Clicking twice is a 409, not a row. */
+  /** Takes a place at a published event. A second application is a 409. */
   @Post(':id/registrations')
-  register(@Param('id') id: string, @CurrentUser() user: PublicUser) {
-    return this.events.register(id, user.id);
+  register(@Param('id') id: string, @CurrentUser() user: PublicUser, @Body() body: CreateRegistrationDto) {
+    return this.events.register(id, user, body);
   }
 }

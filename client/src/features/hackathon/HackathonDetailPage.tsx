@@ -6,7 +6,7 @@ import { ApiError } from '../../lib/api-client';
 import { apiAssetUrl } from '../../lib/api-config';
 import { authErrorMessage } from '../../lib/auth-error';
 import { formatDeadline, formatEventRange } from '../../lib/event-display';
-import { editHackathonPath } from '../admin/paths';
+import { editHackathonPath, registrationsPath } from '../admin/paths';
 import { useSession } from '../auth/session';
 import { DescriptionText } from './DescriptionText';
 import { EventRegistrationAction } from './EventRegistrationAction';
@@ -121,6 +121,12 @@ export function HackathonDetailPage() {
                 to={editHackathonPath(data.id)}
               >
                 Manage event
+              </Link>
+              <Link
+                className="button button--ghost"
+                to={registrationsPath(data.id)}
+              >
+                Show registrations
               </Link>
             </div>
           ) : null}
