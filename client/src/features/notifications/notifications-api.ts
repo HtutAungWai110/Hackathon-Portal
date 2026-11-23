@@ -21,6 +21,18 @@ export type NotificationsPage = {
   unreadCount: number;
 };
 
+/**
+ * The in-app address a notice points at, if it has one. Only a single-slash
+ * path is accepted: a stored value can never send the app to another origin.
+ */
+export function notificationLink(row: Notification): string | null {
+  const link = row.data.link;
+  if (typeof link !== 'string' || !link.startsWith('/') || link.startsWith('//')) {
+    return null;
+  }
+  return link;
+}
+
 export const notificationKeys = {
   all: ['notifications'] as const,
   unread: () => [...notificationKeys.all, 'unread'] as const,
@@ -47,10 +59,4 @@ export async function markNotificationRead(id: string): Promise<{
     `/notifications/${encodeURIComponent(id)}/read`,
     { method: 'PATCH' },
   );
-}
-
-export async function markAllNotificationsRead(): Promise<{ count: number }> {
-  return apiFetch<{ count: number }>('/notifications/read-all', {
-    method: 'POST',
-  });
 }

@@ -42,7 +42,6 @@ export class NotificationsGateway {
     }
     this.sockets.set(client.id, userId);
     await client.join(userSocketRoom(userId));
-    console.log(`SMOKE: joined ${client.id} -> ${userSocketRoom(userId)}`);
   }
 
   async handleDisconnect(client: Socket): Promise<void> {
@@ -57,9 +56,6 @@ export class NotificationsGateway {
   @SubscribeMessage('notification:read')
   async handleClientRead(client: Socket, payload: unknown): Promise<void> {
     const userId = this.sockets.get(client.id);
-    console.log(
-      `SMOKE: handleClientRead userId=${String(userId)} payload=${JSON.stringify(payload)}`,
-    );
     if (userId === undefined) {
       return;
     }
@@ -74,10 +70,8 @@ export class NotificationsGateway {
       userId,
       idsToMark,
     );
-    console.log(`SMOKE: marked=${marked.length} unreadCount=${unreadCount}`);
     if (marked.length > 0) {
-      this.emitRead(userId, marked);
-      this.emitUnreadCount(userId, unreadCount);
+      this.emitRead(userId, marked, unreadCount);
     }
   }
 
@@ -87,8 +81,14 @@ export class NotificationsGateway {
       .emit('notification:new', row);
   }
 
-  emitRead(userId: string, ids: string[]): void {
-    this.server.to(userSocketRoom(userId)).emit('notification:read', { ids });
+  /**
+   * The read mark and the count go together: a tab that applies the mark must
+   * not have to refetch to learn the number the badge should show.
+   */
+  emitRead(userId: string, ids: string[], unreadCount: number): void {
+    this.server
+      .to(userSocketRoom(userId))
+      .emit('notification:read', { ids, unreadCount });
   }
 
   emitUnreadCount(userId: string, count: number): void {

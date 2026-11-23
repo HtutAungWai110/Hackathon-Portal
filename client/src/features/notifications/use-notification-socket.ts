@@ -8,6 +8,11 @@ import {
   type Notification,
   type NotificationsPage,
 } from './notifications-api';
+import {
+  clearNotificationToasts,
+  dismissNotificationToasts,
+  pushNotificationToast,
+} from './notification-toast-store';
 import { readNotificationIds, saveReadIds } from './read-marks';
 import { markRowsRead } from './use-notifications';
 
@@ -44,6 +49,12 @@ export function useNotificationSocket(userId: string | null) {
     });
 
     socket.on('notification:new', (row: Notification) => {
+      // A row the user already read on another tab still arrives here; it
+      // lands read, does not bump the count, and is not worth a toast.
+      const alreadyRead = readNotificationIds().has(row.id);
+      if (!alreadyRead && document.visibilityState === 'visible') {
+        pushNotificationToast(row);
+      }
       queryClient.setQueriesData<NotificationsPage>(
         { queryKey: notificationKeys.unread() },
         (old) => {
@@ -55,9 +66,6 @@ export function useNotificationSocket(userId: string | null) {
             });
             return old;
           }
-          // A row the user already read on another tab still arrives here;
-          // it lands read and does not bump the count.
-          const alreadyRead = readNotificationIds().has(row.id);
           return {
             ...old,
             items: [{ ...row, read: alreadyRead || row.read }, ...old.items],
@@ -69,6 +77,9 @@ export function useNotificationSocket(userId: string | null) {
 
     socket.on('notification:read', ({ ids, unreadCount }: { ids: string[]; unreadCount: number }) => {
       saveReadIds(ids);
+      // A notice already read elsewhere (or in the open panel here) has been
+      // dealt with; its slip should not stay on screen for another minute.
+      dismissNotificationToasts(ids);
       queryClient.setQueriesData<NotificationsPage>(
         { queryKey: notificationKeys.unread() },
         (old) =>
@@ -87,6 +98,9 @@ export function useNotificationSocket(userId: string | null) {
 
     return () => {
       socket.disconnect();
+      // The next connection may belong to another account; its notices are
+      // not this one's, so nothing from this session stays on screen.
+      clearNotificationToasts();
     };
   }, [userId, queryClient]);
 }

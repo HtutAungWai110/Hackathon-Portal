@@ -1,27 +1,47 @@
 import { useEffect, useState } from 'react';
-import { BellIcon, CheckIcon } from 'lucide-react';
-import { formatMoment } from '../../lib/event-display';
+import { useNavigate } from 'react-router';
+import { BellIcon } from 'lucide-react';
 import {
-  useMarkAllNotificationsRead,
   useMarkNotificationRead,
+  useRefreshUnreadNotifications,
   useUnreadNotifications,
 } from './use-notifications';
-import type { Notification } from './notifications-api';
+import { NotificationBellRow } from './NotificationBellRow';
+import { notificationLink, type Notification } from './notifications-api';
 import './NotificationsBell.css';
 
 /**
  * The notice bell in the account area. It reads the unread page from the
  * cache, and while the socket is connected it gets every new row as it is
- * created. Clicking the badge or any row marks rows read; the server
- * broadcasts the change back so other tabs follow along.
+ * created.
+ *
+ * Opening the panel is what reads the notices: each row marks itself read when
+ * it is actually visible, so there is no second "mark as read" click. Closing
+ * the panel refetches the unread page, which drops the rows the server now
+ * considers read. A row with a stored link is also a way into the screen it
+ * came from.
  */
 export function NotificationsBell() {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const { data } = useUnreadNotifications();
   const markRead = useMarkNotificationRead();
-  const markAll = useMarkAllNotificationsRead();
+  const refreshUnread = useRefreshUnreadNotifications();
   const items = data?.items ?? [];
   const unreadCount = data?.unreadCount ?? 0;
+
+  function close(): void {
+    setOpen(false);
+    refreshUnread();
+  }
+
+  function openNotification(notification: Notification): void {
+    const link = notificationLink(notification);
+    if (link !== null) {
+      navigate(link);
+    }
+    close();
+  }
 
   useEffect(() => {
     if (!open) {
@@ -30,13 +50,14 @@ export function NotificationsBell() {
     function onKeyDown(event: KeyboardEvent): void {
       if (event.key === 'Escape') {
         setOpen(false);
+        refreshUnread();
       }
     }
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [open]);
+  }, [open, refreshUnread]);
 
   return (
     <div className="notifications-bell">
@@ -48,7 +69,13 @@ export function NotificationsBell() {
         }
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (open) {
+            close();
+          } else {
+            setOpen(true);
+          }
+        }}
       >
         <BellIcon className="notifications-bell__icon" aria-hidden />
         {unreadCount > 0 ? (
@@ -71,46 +98,15 @@ export function NotificationsBell() {
           ) : (
             <ul className="notifications-bell__items">
               {items.map((row: Notification) => (
-                <li className="notifications-bell__item" key={row.id}>
-                  <button
-                    className={
-                      row.read
-                        ? 'notifications-bell__item-button notifications-bell__item-button--read'
-                        : 'notifications-bell__item-button'
-                    }
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      markRead.mutate(row.id);
-                      setOpen(false);
-                    }}
-                  >
-                    <span className="notifications-bell__message">{row.message}</span>
-                    <span className="notifications-bell__time">
-                      {formatMoment(row.createdAt) ?? 'Recently'}
-                    </span>
-                    {!row.read ? (
-                      <CheckIcon className="notifications-bell__unread" aria-hidden />
-                    ) : null}
-                  </button>
-                </li>
+                <NotificationBellRow
+                  key={row.id}
+                  notification={row}
+                  onSeen={markRead.mutate}
+                  onOpen={openNotification}
+                />
               ))}
             </ul>
           )}
-
-          {unreadCount > 0 ? (
-            <button
-              className="notifications-bell__mark-all"
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                markAll.mutate();
-                setOpen(false);
-              }}
-            >
-              Mark all as read
-            </button>
-          ) : null}
         </div>
       ) : null}
     </div>

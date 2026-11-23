@@ -80,14 +80,14 @@ only genuinely shared pieces move up to `components/` or `lib/`.
 
 | Folder | Owns |
 | --- | --- |
-| `app/router.tsx` | The route table, wrapped in session and role guards |
+| `app/` | The route table, and the shell that owns the live notification socket and the toaster |
 | `components/` | `AppNav`, `TextField`, `TextAreaField`, `PasswordField`, `Combobox`, `ConfirmDialog`, `StatusScreen`, `LightRays` |
 | `features/auth/` | Login and signup screens, `RequireSession` / `RequireAdmin` / `RedirectIfAuthenticated`, the session query, the Zustand identity mirror |
 | `features/home/` | The landing page: what the portal is, how it works, and the event calendar |
 | `features/hackathon/` | Public calendar and cards, the event page, the image lightbox, description rendering, the Register action with its application form |
 | `features/admin/` | Dashboard, create and edit forms, sponsor picker, image and background fields, the event ledger, the applications drawer, the registrations page |
 | `features/messages/` | The global message store and the animated stack |
-| `features/notifications/` | The unread inbox API, the notice bell in the nav bar, and the realtime websocket client |
+| `features/notifications/` | The unread inbox API, the bell that reads a row once it is visible, the arrival toaster, and the realtime websocket client |
 | `lib/` | `apiFetch` (Bearer token plus one refresh on `401`), session API, Better Auth client, query client, error mapping, description parser, date formatting, validation rules |
 
 Data fetching rules that matter when adding a screen:
@@ -170,15 +170,17 @@ cookie is not a second way in.
 Websocket: `NotificationsGateway` serves the default socket.io namespace on the same origin. The
 handshake carries the access JWT in `auth.token`, verified like a request token; unknown or
 banned users are dropped before they join. Each user joins a `user:<id>` room, so new rows arrive
-as `notification:new`, read changes as `notification:read` (the client sends `{ ids }` back for
-marks the REST endpoint could not take), and the count changes as `notification:unreadCount`.
+as `notification:new`, read changes as `notification:read` with `{ ids, unreadCount }` (whether
+the mark came through the REST endpoint or the socket), and the count changes as
+`notification:unreadCount`. The SPA mounts the socket once, in `AppShell`, so it survives route
+changes.
 
 ### Data model
 
 | Model | Meaning |
 | --- | --- |
 | `User` | Account with `participant` or `admin` role, verification and ban fields |
-| `Notification` | One user's message from the portal: `senderId` (null for the system), `receiverId`, the `data` payload, `message`, `read`, `createdAt` |
+| `Notification` | One user's message from the portal: `senderId` (null for the system), `receiverId`, the `data` payload (kind, ids, and the console `link`), `message`, `read`, `createdAt` |
 | `Session`, `Account` | Better Auth records |
 | `Applications` | A participant's application for one event: required message, optional company; unique `(eventId, applier)` |
 | `HackathonEvent` | Title, description, schedule, deadline, location, images, status |

@@ -42,16 +42,25 @@ one producer, and a live push on the socket that the SPA already talks over for.
   handshake's `auth.token` with `SessionService.verifyAccess` plus a user row check, drops
   missing/invalid/banned users, and joins `user:<id>`.
 - **AC-5**: Server → client messages on the room: `notification:new` with the row,
-  `notification:read` with `{ ids }`, `notification:unreadCount` with `{ count }`.
+  `notification:read` with `{ ids, unreadCount }`, `notification:unreadCount` with `{ count }`.
+  A REST mark broadcasts the same `notification:read` shape, so an open tab learns about a read
+  made in another one without refetching.
 - **AC-6**: Client → server: sending `notification:read` with `{ ids }` marks those rows read for
   the sender; other users' ids and empty payloads are ignored.
-- **AC-7**: The console marks reads in three places — the REST response of `PATCH` (cache update),
-  the socket broadcast (cross-tab), and "Mark all read". Every one appends the ids to the
-  `notifications:read` array in `localStorage` as it happens.
+- **AC-7**: Opening the bell marks a row read when the row is actually visible in the panel
+  (`IntersectionObserver`, also while scrolling); there is no "mark as read" click and no
+  "mark all" button. The REST response, the socket broadcast, and localStorage
+  (`notifications:read`) all record the mark as it happens, and closing the panel refetches the
+  unread page so the rows that are now read leave it.
 - **AC-8**: `GET /notifications` returns only unread rows: the client filters the page against
   the ids it has saved, so a reload or a new tab never sees a read row.
 - **AC-9**: The REST list, the socket, and the localStorage read marks agree: a row the socket
   delivers with a saved id is marked read in the cache and does not bump the count.
+- **AC-10**: While the page is visible, `notification:new` also pushes an arrival toast at the
+  bottom right: the message, its arrival time, an action that follows `data.link` when present,
+  and a close button. The toast fades out slowly on its own (pausing while hovered or focused)
+  and is removed when its row is read elsewhere. A toast is a preview only; it never marks the
+  row read.
 
 ## Decision
 
@@ -85,15 +94,19 @@ means the API's answer is about the application, not about notices.
 room. Message handling is `@SubscribeMessage('notification:read')`; the gateway updates through
 `NotificationsService.markReadByIds` (idempotent on `receiverId`) and re-broadcasts.
 
-**Client**: `useUnreadNotifications` (REST, unread-only), `useMarkNotificationRead`,
-`useMarkAllNotificationsRead`, `useNotificationSocket` (connects when a user is signed in,
-refreshes the token on reconnect), and `NotificationsBell` in the account area. Read marks
-persist to localStorage on the three paths in AC-7 and are filtered out of the unread page.
+**Client**: `AppShell` mounts `useNotificationSocket` once for the whole router, so the
+connection and the arrival stack outlive a route change. `useUnreadNotifications` (REST,
+unread-only) and `useMarkNotificationRead` feed `NotificationsBell`; each `NotificationBellRow`
+marks itself read when it is visible. The live half is `notification-toast-store` (a Zustand
+queue, not server state) drawn by `NotificationToaster` / `NotificationToastCard`, which uses
+motion for the entrance, the slow fade, and the stack reflow. Read marks persist to localStorage
+on every path in AC-7 and are filtered out of the unread page.
 
 **Key invariants**:
 - One row per receiver; nothing the API does writes rows directly.
 - The socket only changes the unread page and the count; the REST endpoints are the authority.
 - A user with no socket gets the REST list; nothing else changes.
+- A toast is a preview of a row and never the record: losing it loses nothing.
 
 ## Consequences
 
@@ -101,6 +114,7 @@ persist to localStorage on the three paths in AC-7 and are filtered out of the u
 - Applications stop feeling lost to an admin's timeline.
 - The bell is a read, so nothing breaks when the socket drops.
 - One table; every later notice kind joins it.
+- The arrival toast catches an admin who is not looking at the bell, without a second inbox.
 
 **Negative / tradeoffs**:
 - The REST `GET /notifications` is unread-only, so a "show read history" feature needs new

@@ -1,6 +1,6 @@
 /* The notice bell in the account area of the nav. The menu is the quick
-   surface for unread rows; marking one read or all of them is what the
-   count and the dot reflect. */
+   surface for unread rows; a row is read once it is visible in the panel, and
+   the count and dot reflect what is left. */
 
 .notifications-bell {
   position: relative;
@@ -119,39 +119,21 @@
   color: var(--color-ink);
 }
 
-.notifications-bell__item-button--read .notifications-bell__message {
-  color: var(--color-muted);
-}
-
-.notifications-bell__time,
-.notifications-bell__unread {
-  font-family: var(--font-mono);
-  font-size: 10px;
+.notifications-bell__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .notifications-bell__time {
-  color: var(--color-muted);
-}
-
-.notifications-bell__unread {
-  color: var(--color-signal);
-}
-
-.notifications-bell__mark-all {
-  width: 100%;
-  margin-top: 6px;
-  padding: 8px 12px;
-  border: 0;
-  border-top: 1px dashed var(--color-line-strong);
-  background: transparent;
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 10px;
   color: var(--color-muted);
-  cursor: pointer;
 }
 
-.notifications-bell__mark-all:hover {
+.notifications-bell__arrow {
+  width: 12px;
+  height: 12px;
   color: var(--color-signal);
 }

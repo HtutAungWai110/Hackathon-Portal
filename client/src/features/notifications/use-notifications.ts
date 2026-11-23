@@ -1,7 +1,7 @@
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchUnreadNotifications,
-  markAllNotificationsRead,
   markNotificationRead,
   notificationKeys,
 } from './notifications-api';
@@ -65,29 +65,22 @@ export function useMarkNotificationRead() {
               },
       );
     },
+    onError: () => {
+      // The row is still unread on the server; refetching puts the truth back
+      // instead of leaving a notice that silently disappeared from the panel.
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.unread() });
+    },
   });
 }
 
-export function useMarkAllNotificationsRead() {
+/**
+ * `stale` is not the same as empty: a row marked read while the panel was open
+ * is still in the cache. Closing the panel asks the server for the unread page
+ * again, which is what makes the read rows actually leave.
+ */
+export function useRefreshUnreadNotifications(): () => void {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: markAllNotificationsRead,
-    onSuccess: () => {
-      const old = queryClient.getQueryData<NotificationsPage>(
-        notificationKeys.unread(),
-      );
-      saveReadIds(old?.items.filter((row) => row.read === false).map((row) => row.id) ?? []);
-      queryClient.setQueriesData<NotificationsPage>(
-        { queryKey: notificationKeys.unread() },
-        (old) =>
-          old === undefined
-            ? old
-            : {
-                ...old,
-                items: old.items.map((row) => ({ ...row, read: true })),
-                unreadCount: 0,
-              },
-      );
-    },
-  });
+  return useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: notificationKeys.unread() });
+  }, [queryClient]);
 }
