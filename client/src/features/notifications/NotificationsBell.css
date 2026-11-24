@@ -50,16 +50,18 @@
   box-shadow: 2px 2px 0 #000;
 }
 
+/* Positioned in a portal under the button, so the stage's stacking contexts
+   and overflow cannot paint over it or clip it. `top`/`right` come from the
+   measured button rect. */
 .notifications-bell__menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
   min-width: 280px;
-  max-width: 320px;
-  z-index: 30;
+  max-width: min(320px, calc(100vw - 16px));
+  z-index: 9999;
   padding: 10px 0;
   border: 2px solid var(--color-line-strong);
-  background: var(--color-card);
+  background-color: #0e1419;
+  background: #0e1419;
   box-shadow: 3px 3px 0 #000;
 }
 
@@ -98,7 +100,7 @@
   padding: 8px 12px;
   border: 0;
   background: transparent;
-  color: inherit;
+  color: var(--color-chalk);
   font-family: inherit;
   text-align: left;
   cursor: pointer;
@@ -116,7 +118,7 @@
   font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.35;
-  color: var(--color-ink);
+  color: var(--color-chalk);
 }
 
 .notifications-bell__foot {

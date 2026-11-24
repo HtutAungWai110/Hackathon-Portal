@@ -1,7 +1,7 @@
 import { apiFetch } from '../../lib/api-client';
 
 export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'CANCELLED';
-export type ApplicationStatus = 'IN_PROGRESS' | 'INTERVIEW' | 'REJECTED';
+export type ApplicationStatus = 'IN_PROGRESS' | 'INTERVIEW' | 'ACCEPTED' | 'REJECTED';
 export type SponsorTier = 'MAIN' | 'CO_SPONSOR';
 
 /**
@@ -131,6 +131,8 @@ export type AdminRegistration = {
   companyName: string | null;
   companyEmail: string | null;
   status: ApplicationStatus;
+  /** The admin's note when the application was rejected, otherwise null. */
+  reasonForRejection: string | null;
   applicationDate: string;
   user: {
     id: string;
@@ -324,5 +326,25 @@ export function listEventRegistrations(
   const queryString = params.toString();
   return apiFetch<PaginatedApplications>(
     `/admin/events/${encodeURIComponent(eventId)}/registrations${queryString ? `?${queryString}` : ''}`,
+  );
+}
+
+export type RegistrationDecision = 'accept' | 'reject';
+
+/**
+ * The one decision route: `action` says which way it went, and a rejection
+ * may carry the admin's optional reason. Nothing is deleted.
+ */
+export function decideRegistration(
+  eventId: string,
+  registrationId: string,
+  decision: { action: RegistrationDecision; reason?: string },
+): Promise<AdminRegistration> {
+  return apiFetch<AdminRegistration>(
+    `/admin/events/${encodeURIComponent(eventId)}/registrations/${encodeURIComponent(registrationId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(decision),
+    },
   );
 }

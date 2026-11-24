@@ -20,7 +20,15 @@ import type { NotificationRow } from './notifications.types.js';
  * read reliably in a cross-origin handshake. Verification mirrors the JWT
  * guard: unknown or banned users are dropped before they join a room.
  */
-@WebSocketGateway({ cors: clientOrigins() })
+@WebSocketGateway({
+  cors: {
+    origin: clientOrigins(),
+    // The handshake is authenticated by the JWT in `auth.token`, but the
+    // client still connects with credentials, so a wildcard origin would be
+    // rejected by the browser. Mirror the HTTP CORS config exactly.
+    credentials: true,
+  },
+})
 export class NotificationsGateway {
   private readonly sockets = new Map<string, string>();
 

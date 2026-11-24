@@ -20,6 +20,8 @@ model Applications {
   applicationDate   DateTime          @default(now())
   lastUpdated       DateTime          @default(now())
   status            ApplicationStatus @default(IN_PROGRESS)
+  /// Why an admin turned the application down; null until rejected with a note.
+  reasonForRejection String?
   user              User              @relation(fields: [applier], references: [id], onDelete: Cascade)
   event             HackathonEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
@@ -95,7 +97,7 @@ model Verification {
 
 enum ApplicationStatus {
   IN_PROGRESS
-  INTERVIEW
+  ACCEPTED
   REJECTED
 }
 

@@ -5,32 +5,32 @@ import {
   markNotificationRead,
   notificationKeys,
 } from './notifications-api';
-import { readNotificationIds, saveReadIds } from './read-marks';
+import { saveReadIds } from './read-marks';
+import { markCachedNotificationsRead, readCachedNotifications, saveNotificationsToCache } from './notification-cache';
 import type { Notification, NotificationsPage } from './notifications-api';
 
-/**
- * The rows the page returns at once. The bell only needs the first batch;
- * more rows arrive through the socket.
- */
+/** The rows the page returns at once. */
 export const UNREAD_PAGE_SIZE = 50;
 
-/**
- * The unread rows for one user, newest first. The REST list is unread-only;
- * anything the user already read on this device but the server has not caught
- * up with is filtered out, so the page still answers only unread rows.
- */
+/** Unread notifications from the server, merged with cached read history for display. */
 export function useUnreadNotifications() {
   return useQuery({
     queryKey: notificationKeys.unread(),
     queryFn: async () => {
       const page = await fetchUnreadNotifications(1, UNREAD_PAGE_SIZE);
-      const read = readNotificationIds();
-      const alreadyRead = page.items.filter((row) => read.has(row.id));
+      saveNotificationsToCache(page.items);
+      const cached = readCachedNotifications();
+      const serverIds = new Set(page.items.map((item: Notification) => item.id));
+      const extraFromCache = cached.filter(
+        (item: Notification) => item.read && !serverIds.has(item.id),
+      );
+      const items = [...page.items, ...extraFromCache].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
       return {
-        ...page,
-        items: page.items.filter((row) => !read.has(row.id)),
-        unreadCount: Math.max(0, page.unreadCount - alreadyRead.length),
-      };
+        items,
+        unreadCount: page.unreadCount,
+      } as NotificationsPage;
     },
     staleTime: 30_000,
     retry: false,
@@ -51,8 +51,8 @@ export function useMarkNotificationRead() {
   return useMutation({
     mutationFn: markNotificationRead,
     onSuccess: (response) => {
-      // The read mark is saved the moment it happens, not on the next refetch.
       saveReadIds([response.id]);
+      markCachedNotificationsRead([response.id]);
       queryClient.setQueriesData<NotificationsPage>(
         { queryKey: notificationKeys.unread() },
         (old) =>
@@ -66,17 +66,13 @@ export function useMarkNotificationRead() {
       );
     },
     onError: () => {
-      // The row is still unread on the server; refetching puts the truth back
-      // instead of leaving a notice that silently disappeared from the panel.
       void queryClient.invalidateQueries({ queryKey: notificationKeys.unread() });
     },
   });
 }
 
 /**
- * `stale` is not the same as empty: a row marked read while the panel was open
- * is still in the cache. Closing the panel asks the server for the unread page
- * again, which is what makes the read rows actually leave.
+ * Closing the panel refetches the recent list so the read state stays fresh.
  */
 export function useRefreshUnreadNotifications(): () => void {
   const queryClient = useQueryClient();

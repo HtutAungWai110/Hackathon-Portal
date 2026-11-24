@@ -8,11 +8,15 @@ type RegistrationCardProps = {
   registration: AdminRegistration;
   /** True for the row a `registrationId` deep link points at. */
   focused?: boolean;
+  onAccept?: (id: string) => void;
+  onReject?: (id: string) => void;
+  actionPending?: boolean;
 };
 
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
   IN_PROGRESS: 'In review',
   INTERVIEW: 'Interview',
+  ACCEPTED: 'Accepted',
   REJECTED: 'Not selected',
 };
 
@@ -30,6 +34,9 @@ function initials(name: string): string {
 export function RegistrationCard({
   registration,
   focused = false,
+  onAccept,
+  onReject,
+  actionPending = false,
 }: RegistrationCardProps) {
   const name = registration.user.name.trim();
   const when = formatMoment(registration.applicationDate);
@@ -68,6 +75,12 @@ export function RegistrationCard({
         {registration.additionalMessage}
       </p>
 
+      {registration.reasonForRejection ? (
+        <p className="registration-card__reason">
+          <strong>Reason:</strong> {registration.reasonForRejection}
+        </p>
+      ) : null}
+
       {companyName.length > 0 || companyEmail.length > 0 ? (
         <p className="registration-card__company">
           {companyName.length > 0 ? (
@@ -84,6 +97,31 @@ export function RegistrationCard({
             </a>
           ) : null}
         </p>
+      ) : null}
+
+      {(onAccept !== undefined || onReject !== undefined) ? (
+        <div className="registration-card__actions">
+          {onAccept !== undefined && registration.status !== 'ACCEPTED' ? (
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={actionPending}
+              onClick={() => onAccept(registration.id)}
+            >
+              Accept
+            </button>
+          ) : null}
+          {onReject !== undefined && registration.status !== 'REJECTED' ? (
+            <button
+              className="button button--quiet"
+              type="button"
+              disabled={actionPending}
+              onClick={() => onReject(registration.id)}
+            >
+              Reject
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </li>
   );

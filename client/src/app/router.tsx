@@ -18,8 +18,9 @@ import {
   EDIT_HACKATHON_PATH,
   REGISTRATIONS_PATH,
 } from '../features/admin/paths';
-import { HACKATHON_PATH } from '../features/hackathon/paths';
+import { HACKATHON_PATH, YOUR_APPLICATION_PATH } from '../features/hackathon/paths';
 import { HackathonDetailPage } from '../features/hackathon/HackathonDetailPage';
+import { YourApplicationPage } from '../features/hackathon/YourApplicationPage';
 import { HomePage } from '../features/home/HomePage';
 
 export const router = createBrowserRouter([
@@ -39,6 +40,14 @@ export const router = createBrowserRouter([
       {
         path: HACKATHON_PATH,
         element: <HackathonDetailPage />,
+      },
+      {
+        path: YOUR_APPLICATION_PATH,
+        element: (
+          <RequireSession>
+            <YourApplicationPage />
+          </RequireSession>
+        ),
       },
       {
         path: ADMIN_DASHBOARD_PATH,

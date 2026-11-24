@@ -42,9 +42,10 @@ belong in the owning feature's CSS or in `client/src/index.css`.
 │   │   ├── features/         one folder per product area
 │   │   │   ├── auth/         sign in, sign up, guards, session, auth store
 │   │   │   ├── home/         the landing page and the calendar
-│   │   │   ├── hackathon/    public event list, detail page, application form
-│   │   │   ├── admin/        dashboard, event forms, ledger, applications drawer
-│   │   │   └── messages/     global message queue
+│   │   │   ├── hackathon/    public event list, detail page, application form, Your application page
+│   │   │   ├── admin/        dashboard, event forms, ledger, registrations and decisions
+│   │   │   ├── messages/     global message queue
+│   │   │   └── notifications/ bell panel, arrival toaster, inbox API, socket
 │   │   ├── lib/              api client, session api, query client, helpers
 │   │   ├── index.css         design tokens, base layer, shared classes
 │   │   └── main.tsx          providers, router, message stack
@@ -58,6 +59,7 @@ belong in the owning feature's CSS or in `client/src/index.css`.
     │   │   └── session/      JWT service, guard, cookies, `/session/*`
     │   ├── events/           catalogue service, public controller, DTOs
     │   ├── admin/            admin only controllers over the same service
+    │   ├── notifications/    notice inbox, socket gateway, producer and broadcast worker
     │   ├── mail/             queue, worker, templates, transports
     │   ├── uploads/          multipart uploads and the image bucket
     │   ├── prisma/           PrismaService and its module
@@ -84,10 +86,10 @@ only genuinely shared pieces move up to `components/` or `lib/`.
 | `components/` | `AppNav`, `TextField`, `TextAreaField`, `PasswordField`, `Combobox`, `ConfirmDialog`, `StatusScreen`, `LightRays` |
 | `features/auth/` | Login and signup screens, `RequireSession` / `RequireAdmin` / `RedirectIfAuthenticated`, the session query, the Zustand identity mirror |
 | `features/home/` | The landing page: what the portal is, how it works, and the event calendar |
-| `features/hackathon/` | Public calendar and cards, the event page, the image lightbox, description rendering, the Register action with its application form |
-| `features/admin/` | Dashboard, create and edit forms, sponsor picker, image and background fields, the event ledger, the applications drawer, the registrations page |
+| `features/hackathon/` | Public calendar and cards, the event page, the image lightbox, description rendering, the Register action with its application form, and the `Your application` page that shows the organiser's decision |
+| `features/admin/` | Dashboard, create and edit forms, sponsor picker, image and background fields, the event ledger, the applications drawer, the registrations page, and the themed accept/reject confirm dialog |
 | `features/messages/` | The global message store and the animated stack |
-| `features/notifications/` | The unread inbox API, the bell that reads a row once it is visible, the arrival toaster, and the realtime websocket client |
+| `features/notifications/` | The unread inbox API, the bell panel (rendered in a portal so the page cannot clip or paint over it), the arrival toaster, the read marks, and the realtime websocket client |
 | `lib/` | `apiFetch` (Bearer token plus one refresh on `401`), session API, Better Auth client, query client, error mapping, description parser, date formatting, validation rules |
 
 Data fetching rules that matter when adding a screen:
@@ -107,6 +109,7 @@ Routes:
 | --- | --- | --- |
 | `/` | signed in | Home: product explanation and calendar |
 | `/hackathon?id=<eventId>` | public | Event page, with Register (an application form) for signed in participants |
+| `/hackathon/your-application?id=<eventId>` | signed in | The caller's application: status, message, and the rejection reason when there is one |
 | `/admin/dashboard` | admin | Event ledger |
 | `/admin/dashboard/hackathon/create` | admin | Create event |
 | `/admin/dashboard/hackathon/edit?id=<eventId>` | admin | Edit event |
@@ -144,6 +147,7 @@ There is no global route prefix.
 | `GET` | `/events` | public | Published and completed events |
 | `GET` | `/events/:id` | public | One public event, sponsors included |
 | `GET` | `/events/:id/registration` | signed in | `{ registered, registeredAt, open }` |
+| `GET` | `/events/:id/registration/details` | signed in | The caller's application, with `status` and `reasonForRejection` |
 | `POST` | `/events/:id/registrations` | signed in | Apply with a required message; `409` if already applied |
 | `GET` | `/admin/events` | admin | Every event, drafts included, with `registrationCount` |
 | `POST` | `/admin/events` | admin | Create an event |
@@ -155,6 +159,7 @@ There is no global route prefix.
 | `PATCH` | `/notifications/:id/read` | signed in | Mark one unread row read |
 | `POST` | `/notifications/read-all` | signed in | Mark every unread row read; answers `{ count }` |
 | `GET` | `/admin/events/:id/registrations` | admin | One page of applications; `page`, `limit` (10–100 in tens), `registrationId` |
+| `PATCH` | `/admin/events/:id/registrations/:registrationId` | admin | Decide one application: body `action` is `accept` or `reject`, with an optional `reason`; nothing is deleted |
 | `POST` | `/admin/events/:id/sponsors` | admin | Attach a sponsor |
 | `PATCH` | `/admin/events/:id/sponsors/:sponsorId` | admin | Update a sponsor |
 | `DELETE` | `/admin/events/:id/sponsors/:sponsorId` | admin | Detach a sponsor |
@@ -182,7 +187,7 @@ changes.
 | `User` | Account with `participant` or `admin` role, verification and ban fields |
 | `Notification` | One user's message from the portal: `senderId` (null for the system), `receiverId`, the `data` payload (kind, ids, and the console `link`), `message`, `read`, `createdAt` |
 | `Session`, `Account` | Better Auth records |
-| `Applications` | A participant's application for one event: required message, optional company; unique `(eventId, applier)` |
+| `Applications` | A participant's application for one event: required message, optional company, `status`, optional `reasonForRejection`; unique `(eventId, applier)` |
 | `HackathonEvent` | Title, description, schedule, deadline, location, images, status |
 | `Company` | A sponsor organisation |
 | `Sponsor` | Joins a `Company` to an event with a tier and contribution |
@@ -190,6 +195,12 @@ changes.
 Event status is `DRAFT`, `PUBLISHED`, `COMPLETED`, or `CANCELLED`. Only `PUBLISHED` and
 `COMPLETED` are visible to visitors. Whether registration is open is decided on the server's
 clock: the event must be published, not started, and before its deadline.
+
+An application starts `IN_PROGRESS`. An admin decision moves it to `ACCEPTED` or `REJECTED`,
+and a rejection may store the admin's optional `reasonForRejection`. The decision updates the
+row rather than deleting it, so the applicant can always read the application and its outcome
+back from `GET /events/:id/registration/details`. Both outcomes are announced through a
+notification whose `data.kind` is `event.applicationAccepted` or `event.applicationRejected`.
 
 ## How a request moves
 

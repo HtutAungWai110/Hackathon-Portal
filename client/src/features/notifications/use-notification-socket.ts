@@ -14,6 +14,7 @@ import {
   pushNotificationToast,
 } from './notification-toast-store';
 import { readNotificationIds, saveReadIds } from './read-marks';
+import { markCachedNotificationsRead, saveNotificationsToCache } from './notification-cache';
 import { markRowsRead } from './use-notifications';
 
 /**
@@ -49,9 +50,9 @@ export function useNotificationSocket(userId: string | null) {
     });
 
     socket.on('notification:new', (row: Notification) => {
-      // A row the user already read on another tab still arrives here; it
-      // lands read, does not bump the count, and is not worth a toast.
       const alreadyRead = readNotificationIds().has(row.id);
+      const normalized = { ...row, read: alreadyRead || row.read };
+      saveNotificationsToCache([normalized]);
       if (!alreadyRead && document.visibilityState === 'visible') {
         pushNotificationToast(row);
       }
@@ -59,8 +60,6 @@ export function useNotificationSocket(userId: string | null) {
         { queryKey: notificationKeys.unread() },
         (old) => {
           if (old === undefined) {
-            // The page was never asked for: the new row alone would not show
-            // anywhere, so fall back to fetching the list.
             void queryClient.invalidateQueries({
               queryKey: notificationKeys.unread(),
             });
@@ -68,7 +67,7 @@ export function useNotificationSocket(userId: string | null) {
           }
           return {
             ...old,
-            items: [{ ...row, read: alreadyRead || row.read }, ...old.items],
+            items: [{ ...normalized, read: alreadyRead || row.read }, ...old.items],
             unreadCount: alreadyRead ? old.unreadCount : old.unreadCount + 1,
           };
         },
@@ -77,8 +76,7 @@ export function useNotificationSocket(userId: string | null) {
 
     socket.on('notification:read', ({ ids, unreadCount }: { ids: string[]; unreadCount: number }) => {
       saveReadIds(ids);
-      // A notice already read elsewhere (or in the open panel here) has been
-      // dealt with; its slip should not stay on screen for another minute.
+      markCachedNotificationsRead(ids);
       dismissNotificationToasts(ids);
       queryClient.setQueriesData<NotificationsPage>(
         { queryKey: notificationKeys.unread() },

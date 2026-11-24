@@ -627,6 +627,10 @@
   color: var(--color-danger);
 }
 
+.registration-card__status[data-status='ACCEPTED'] {
+  color: var(--color-success);
+}
+
 .registration-card__message {
   grid-column: 1 / -1;
   padding-top: 10px;
@@ -636,6 +640,22 @@
   color: var(--color-body);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.registration-card__reason {
+  grid-column: 1 / -1;
+  padding: 8px 10px;
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.registration-card__reason strong {
+  color: var(--color-chalk);
 }
 
 .registration-card__company {
@@ -670,6 +690,15 @@
 .registration-card__company-email:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
+}
+
+.registration-card__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-line-strong);
 }
 
 .ledger--loading {
@@ -1417,5 +1446,125 @@
   .admin-registrations__controls {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+/* ---- Decision dialog ------------------------------------------------ */
+
+/* The warning between an admin and an application decision. It is drawn as a
+   console sheet in a portal above the ledger, not as the browser's confirm. */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  /* Above the bell panel and the arrival toaster: a decision owns the screen. */
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(6, 8, 10, 0.78);
+  backdrop-filter: blur(4px);
+  animation: confirm-overlay-in 140ms ease-out;
+}
+
+.confirm-dialog {
+  position: relative;
+  width: min(460px, 100%);
+  max-height: calc(100svh - 40px);
+  overflow-y: auto;
+  padding: 22px;
+  border: 2px solid var(--color-line-strong);
+  border-top: 8px solid var(--color-signal);
+  background: var(--color-card);
+  box-shadow: 8px 8px 0 #000;
+  animation: confirm-dialog-in 160ms ease-out;
+}
+
+/* The irreversible decision takes the danger edge instead of the signal one. */
+.confirm-dialog[data-tone='danger'] {
+  border-top-color: var(--color-danger);
+}
+
+@keyframes confirm-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes confirm-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.confirm-dialog__title {
+  margin-top: 8px;
+  font-size: 22px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--color-chalk);
+  overflow-wrap: anywhere;
+}
+
+.confirm-dialog__body {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-body);
+}
+
+.confirm-dialog__body strong {
+  color: var(--color-chalk);
+}
+
+.confirm-dialog__reason {
+  margin-top: 16px;
+}
+
+.confirm-dialog__error {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 2px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #ffc2d1;
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--color-line-strong);
+}
+
+@media (max-width: 620px) {
+  .confirm-dialog__actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirm-dialog__actions .button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-overlay,
+  .confirm-dialog {
+    animation: none;
   }
 }

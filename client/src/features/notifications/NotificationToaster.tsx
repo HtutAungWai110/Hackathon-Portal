@@ -5,6 +5,7 @@ import {
   useNotificationToastStore,
   type NotificationToast,
 } from './notification-toast-store';
+import { useMarkNotificationRead } from './use-notifications';
 import './NotificationToaster.css';
 
 /**
@@ -18,10 +19,12 @@ import './NotificationToaster.css';
 export function NotificationToaster() {
   const toasts = useNotificationToastStore((state) => state.toasts);
   const dismiss = useNotificationToastStore((state) => state.dismiss);
+  const markRead = useMarkNotificationRead();
   const navigate = useNavigate();
 
   function open(toast: NotificationToast): void {
     dismiss(toast.id);
+    markRead.mutate(toast.id);
     if (toast.link !== null) {
       navigate(toast.link);
     }

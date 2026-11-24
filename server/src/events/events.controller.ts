@@ -33,6 +33,12 @@ export class EventsController {
     return this.events.registrationStatus(id, user.id);
   }
 
+  /** The current user's full application for this event. */
+  @Get(':id/registration/details')
+  registrationDetails(@Param('id') id: string, @CurrentUser() user: PublicUser) {
+    return this.events.getMyApplication(id, user.id);
+  }
+
   /** Takes a place at a published event. A second application is a 409. */
   @Post(':id/registrations')
   register(@Param('id') id: string, @CurrentUser() user: PublicUser, @Body() body: CreateRegistrationDto) {

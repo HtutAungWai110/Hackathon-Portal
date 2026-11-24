@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authErrorMessage } from '../../lib/auth-error';
 import { pushMessage } from '../messages/message-store';
 import {
+  getMyApplication,
   getRegistrationStatus,
   registerForEvent,
   registrationKeys,
@@ -22,6 +23,15 @@ export function useRegistrationStatus(eventId: string, enabled: boolean) {
     queryFn: () => getRegistrationStatus(eventId),
     enabled: enabled && eventId.length > 0,
     // A 404 or 401 cannot become a success by asking again.
+    retry: false,
+  });
+}
+
+export function useMyApplication(eventId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: registrationKeys.details(eventId),
+    queryFn: () => getMyApplication(eventId),
+    enabled: enabled && eventId.length > 0,
     retry: false,
   });
 }

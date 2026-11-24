@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Link } from 'react-router';
 import { TextAreaField } from '../../components/TextAreaField';
 import { TextField } from '../../components/TextField';
 import { authErrorMessage } from '../../lib/auth-error';
 import { formatMoment } from '../../lib/event-display';
 import { EMAIL_PATTERN } from '../../lib/validation';
-import { useRegisterForEvent, useRegistrationStatus } from './use-registration';
+import {
+  useMyApplication,
+  useRegisterForEvent,
+  useRegistrationStatus,
+} from './use-registration';
+import { yourApplicationPath } from './paths';
 
 type EventRegistrationActionProps = {
   eventId: string;
@@ -28,6 +34,7 @@ export function EventRegistrationAction({
   eventTitle,
 }: EventRegistrationActionProps) {
   const status = useRegistrationStatus(eventId, true);
+  const application = useMyApplication(eventId, status.data?.registered === true);
   const register = useRegisterForEvent(eventId, eventTitle);
   const [formOpen, setFormOpen] = useState(false);
   const form = useForm<RegistrationFormValues>({
@@ -85,14 +92,71 @@ export function EventRegistrationAction({
     );
   }
 
-  const registeredAt = status.data.registeredAt;
   if (status.data.registered) {
-    const when = registeredAt === null ? null : formatMoment(registeredAt);
+    const when = status.data.registeredAt
+      ? formatMoment(status.data.registeredAt)
+      : null;
+    const decision = application.data?.status;
+
+    if (decision === 'ACCEPTED') {
+      return (
+        <div
+          className="hackathon-registration-note hackathon-registration-note--accepted"
+          role="status"
+        >
+          <p className="hackathon-registration-note__headline">
+            You&apos;ve been selected!
+          </p>
+          <p>
+            The organiser accepted your application for {eventTitle}. Your
+            place is confirmed.
+          </p>
+          <p>
+            <Link className="text-link" to={yourApplicationPath(eventId)}>
+              View your application details
+            </Link>
+          </p>
+        </div>
+      );
+    }
+
+    if (decision === 'REJECTED') {
+      return (
+        <div
+          className="hackathon-registration-note hackathon-registration-note--rejected"
+          role="status"
+        >
+          <p className="hackathon-registration-note__headline">Not selected</p>
+          <p>
+            The organiser did not select your application
+            {when === null ? '.' : ` submitted ${when}.`}
+          </p>
+          {application.data?.reasonForRejection ? (
+            <p>
+              <strong>Reason:</strong> {application.data.reasonForRejection}
+            </p>
+          ) : null}
+          <p>
+            <Link className="text-link" to={yourApplicationPath(eventId)}>
+              View your application details
+            </Link>
+          </p>
+        </div>
+      );
+    }
+
     return (
-      <p className="hackathon-registration-note hackathon-registration-note--done">
-        Your application is with the organiser
-        {when === null ? '.' : ` since ${when}.`}
-      </p>
+      <div className="hackathon-registration-note">
+        <p>
+          Your application is with the organiser
+          {when === null ? '.' : ` since ${when}.`}
+        </p>
+        <p>
+          <Link className="text-link" to={yourApplicationPath(eventId)}>
+            View your application details
+          </Link>
+        </p>
+      </div>
     );
   }
 

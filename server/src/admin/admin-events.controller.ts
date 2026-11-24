@@ -15,6 +15,7 @@ import { CurrentUser } from '../auth/session/current-user.decorator.js';
 import type { PublicUser } from '../auth/session/public-user.js';
 import { CreateEventDto } from '../events/dto/create-event.dto.js';
 import { CreateSponsorDto } from '../events/dto/create-sponsor.dto.js';
+import { DecideRegistrationDto } from '../events/dto/decide-registration.dto.js';
 import { ListRegistrationsQueryDto } from '../events/dto/list-registrations-query.dto.js';
 import { ReplaceEventDto } from '../events/dto/replace-event.dto.js';
 import { UpdateEventDto } from '../events/dto/update-event.dto.js';
@@ -102,5 +103,19 @@ export class AdminEventsController {
     @Param('sponsorId') sponsorId: string,
   ): Promise<void> {
     await this.events.removeSponsor(id, sponsorId);
+  }
+
+  /**
+   * Accept or reject an application. One route, because both are the same
+   * decision written to the same row; the body's `action` says which, and a
+   * rejection may carry an optional reason. Nothing is deleted.
+   */
+  @Patch('events/:id/registrations/:registrationId')
+  decideRegistration(
+    @Param('id') id: string,
+    @Param('registrationId') registrationId: string,
+    @Body() body: DecideRegistrationDto,
+  ) {
+    return this.events.decideRegistration(id, registrationId, body);
   }
 }

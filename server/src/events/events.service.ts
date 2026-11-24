@@ -49,6 +49,7 @@ const APPLICATION_SELECT = {
   companyName: true,
   companyEmail: true,
   status: true,
+  reasonForRejection: true,
   applicationDate: true,
   user: {
     select: { id: true, name: true, email: true, image: true },
@@ -245,6 +246,29 @@ export class EventsService {
     };
   }
 
+  /** The current user's full application for this event, or null if none. */
+  async getMyApplication(eventId: string, userId: string) {
+    const event = await this.prisma.hackathonEvent.findFirst({
+      where: { id: eventId, status: { in: [...PUBLIC_STATUSES] } },
+      select: { id: true },
+    });
+    if (event === null) {
+      throw new NotFoundException('No event with that id.');
+    }
+    return this.prisma.applications.findUnique({
+      where: { eventId_applier: { eventId, applier: userId } },
+      select: {
+        id: true,
+        additionalMessage: true,
+        companyName: true,
+        companyEmail: true,
+        status: true,
+        reasonForRejection: true,
+        applicationDate: true,
+      },
+    });
+  }
+
   /**
    * A participant applies for a place at an event. The unique pair makes a
    * repeated submission a conflict rather than a second application, which is
@@ -428,6 +452,67 @@ export class EventsService {
       totalPages,
       registrationId,
     };
+  }
+
+  /**
+   * The one decision route behind both buttons. Accepting and rejecting are
+   * the same write: the status changes, a rejection may carry the admin's
+   * optional reason, and the applicant is told which way it went. The row is
+   * never deleted, so the application page can always read it back.
+   */
+  async decideRegistration(
+    eventId: string,
+    registrationId: string,
+    decision: { action: 'accept' | 'reject'; reason?: string },
+  ): Promise<ConsoleApplication> {
+    await this.requireEvent(eventId);
+    const application = await this.prisma.applications.findFirst({
+      where: { id: registrationId, eventId },
+      select: { ...APPLICATION_SELECT, applier: true },
+    });
+    if (application === null) {
+      throw new NotFoundException('No application with that id on this event.');
+    }
+
+    const accepted = decision.action === 'accept';
+    const reason = decision.reason?.trim() ?? '';
+    const rejectionReason =
+      !accepted && reason.length > 0 ? reason : null;
+
+    const updated = await this.prisma.applications.update({
+      where: { id: registrationId },
+      data: {
+        status: accepted ? 'ACCEPTED' : 'REJECTED',
+        reasonForRejection: rejectionReason,
+      },
+      select: APPLICATION_SELECT,
+    });
+
+    try {
+      await this.notifications.notify([
+        {
+          senderId: null,
+          receiverId: application.applier,
+          message: accepted
+            ? 'Your application was accepted.'
+            : 'Your application was rejected.',
+          data: {
+            kind: accepted
+              ? 'event.applicationAccepted'
+              : 'event.applicationRejected',
+            eventId,
+            applicationId: registrationId,
+            ...(accepted ? {} : { reason: rejectionReason }),
+            link: `/hackathon/your-application?id=${encodeURIComponent(eventId)}`,
+          },
+        },
+      ]);
+    } catch (error) {
+      this.logger.error(
+        `Could not notify applicant of the decision: ${describeError(error)}`,
+      );
+    }
+    return updated;
   }
 
   async create(input: CreateEventDto, createdById: string): Promise<AdminEvent> {

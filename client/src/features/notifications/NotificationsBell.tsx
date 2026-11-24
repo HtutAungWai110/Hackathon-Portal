@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { BellIcon } from 'lucide-react';
 import {
@@ -11,18 +12,19 @@ import { notificationLink, type Notification } from './notifications-api';
 import './NotificationsBell.css';
 
 /**
- * The notice bell in the account area. It reads the unread page from the
- * cache, and while the socket is connected it gets every new row as it is
- * created.
+ * The notice bell in the account area. It reads unread notifications from the
+ * server and merges in cached history so old notifications still appear.
  *
- * Opening the panel is what reads the notices: each row marks itself read when
- * it is actually visible, so there is no second "mark as read" click. Closing
- * the panel refetches the unread page, which drops the rows the server now
- * considers read. A row with a stored link is also a way into the screen it
- * came from.
+ * The panel is drawn in a portal at a fixed position under the button. The nav
+ * sits inside the page stages, whose blanket stacking contexts and clipping
+ * would otherwise paint the event copy over the panel and cut it off.
  */
 export function NotificationsBell() {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(
+    null,
+  );
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const { data } = useUnreadNotifications();
   const markRead = useMarkNotificationRead();
@@ -43,6 +45,37 @@ export function NotificationsBell() {
     close();
   }
 
+  // Anchor the panel under the button and keep it there through scroll and
+  // resize, since it no longer travels with the nav in the DOM.
+  useLayoutEffect(() => {
+    if (!open) {
+      return;
+    }
+    const button = buttonRef.current;
+    if (button === null) {
+      return;
+    }
+
+    function updatePosition(): void {
+      if (button === null) {
+        return;
+      }
+      const rect = button.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + 8,
+        right: Math.max(8, window.innerWidth - rect.right),
+      });
+    }
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -62,6 +95,7 @@ export function NotificationsBell() {
   return (
     <div className="notifications-bell">
       <button
+        ref={buttonRef}
         className="notifications-bell__button"
         type="button"
         aria-label={
@@ -85,30 +119,34 @@ export function NotificationsBell() {
         ) : null}
       </button>
 
-      {open ? (
-        <div
-          className="notifications-bell__menu"
-          role="menu"
-          aria-label="Notifications"
-        >
-          <p className="notifications-bell__menu-label">Notifications</p>
+      {open && position !== null
+        ? createPortal(
+            <div
+              className="notifications-bell__menu"
+              role="menu"
+              aria-label="Notifications"
+              style={{ top: position.top, right: position.right }}
+            >
+              <p className="notifications-bell__menu-label">Notifications</p>
 
-          {items.length === 0 ? (
-            <p className="notifications-bell__empty">No new notifications.</p>
-          ) : (
-            <ul className="notifications-bell__items">
-              {items.map((row: Notification) => (
-                <NotificationBellRow
-                  key={row.id}
-                  notification={row}
-                  onSeen={markRead.mutate}
-                  onOpen={openNotification}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
+              {items.length === 0 ? (
+                <p className="notifications-bell__empty">No notifications yet.</p>
+              ) : (
+                <ul className="notifications-bell__items">
+                  {items.map((row: Notification) => (
+                    <NotificationBellRow
+                      key={row.id}
+                      notification={row}
+                      onSeen={markRead.mutate}
+                      onOpen={openNotification}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

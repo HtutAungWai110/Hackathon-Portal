@@ -18,7 +18,7 @@ export type RegistrationInput = {
   companyEmail?: string;
 };
 
-export type ApplicationStatus = 'IN_PROGRESS' | 'INTERVIEW' | 'REJECTED';
+export type ApplicationStatus = 'IN_PROGRESS' | 'INTERVIEW' | 'ACCEPTED' | 'REJECTED';
 
 /** The application row the API returns after the caller applies. */
 export type EventApplication = {
@@ -32,10 +32,24 @@ export type EventApplication = {
   applicationDate: string;
 };
 
+/** The current user's application detail for an event (from the details endpoint). */
+export type MyApplication = {
+  id: string;
+  additionalMessage: string;
+  companyName: string | null;
+  companyEmail: string | null;
+  status: ApplicationStatus;
+  /** The admin's note when the application was rejected, otherwise null. */
+  reasonForRejection: string | null;
+  applicationDate: string;
+};
+
 export const registrationKeys = {
   all: ['event-registrations'] as const,
   status: (eventId: string) =>
     ['event-registrations', eventId, 'status'] as const,
+  details: (eventId: string) =>
+    ['event-registrations', eventId, 'details'] as const,
 };
 
 export function getRegistrationStatus(
@@ -43,6 +57,14 @@ export function getRegistrationStatus(
 ): Promise<RegistrationStatus> {
   return apiFetch<RegistrationStatus>(
     `/events/${encodeURIComponent(eventId)}/registration`,
+  );
+}
+
+export function getMyApplication(
+  eventId: string,
+): Promise<MyApplication | null> {
+  return apiFetch<MyApplication | null>(
+    `/events/${encodeURIComponent(eventId)}/registration/details`,
   );
 }
 

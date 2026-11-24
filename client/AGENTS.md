@@ -258,4 +258,5 @@ Zustand (`src/features/auth/auth-store.ts`) is a **mirror**, not a second source
    scaffold.
 4. Never rewrite unrelated code, and never delete something you do not understand.
 5. Run `npm run lint` and `npm run build`. Fix failures rather than reporting them as unrelated.
-6. Summarize what changed and which skill, if any, you used.
+6. **After running tests or any verification that started background processes** (dev server `npm run dev`, preview servers, headless browsers), stop them and free ports (e.g. `:5173`). Do not leave orphaned processes.
+7. Summarize what changed and which skill, if any, you used.

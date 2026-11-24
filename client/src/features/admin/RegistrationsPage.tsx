@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppNav } from '../../components/AppNav';
 import { StatusScreen } from '../../components/StatusScreen';
 import { ApiError } from '../../lib/api-client';
@@ -13,9 +14,12 @@ import {
 } from './paths';
 import {
   REGISTRATION_PAGE_SIZES,
+  type AdminRegistration,
   type RegistrationPageSize,
   type RegistrationsQuery,
+  decideRegistration,
 } from './events-api';
+import { ConfirmActionDialog } from './ConfirmActionDialog';
 import { RegistrationCard } from './RegistrationCard';
 import { useAdminEvent } from './use-admin-event';
 import { useEventRegistrations } from './use-event-registrations';
@@ -37,8 +41,16 @@ export function RegistrationsPage() {
   const registrationId = (search.get('registrationId') ?? '').trim();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState<RegistrationPageSize>(10);
+  /** The decision waiting on the confirmation box; nothing is sent until then. */
+  const [pendingAction, setPendingAction] = useState<{
+    kind: 'accept' | 'reject';
+    registration: AdminRegistration;
+  } | null>(null);
+  /** Optional note the admin leaves with a rejection; sent with the delete. */
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const event = useAdminEvent(id);
+  const queryClient = useQueryClient();
   const query: RegistrationsQuery = registrationId
     ? { registrationId }
     : { page, limit };
@@ -46,6 +58,58 @@ export function RegistrationsPage() {
   const rows = applications.data?.items ?? [];
   const data = event.data;
   const missing = event.error instanceof ApiError && event.error.status === 404;
+
+  const decisionMutation = useMutation({
+    mutationFn: (input: {
+      registrationId: string;
+      action: 'accept' | 'reject';
+      reason?: string;
+    }) =>
+      decideRegistration(id, input.registrationId, {
+        action: input.action,
+        reason: input.reason,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'events', id, 'registrations'],
+      });
+      setPendingAction(null);
+      setRejectionReason('');
+    },
+  });
+
+  const actionPending = decisionMutation.isPending;
+  const actionError = decisionMutation.error;
+
+  /** Opening the box is the whole of the button's effect; the API waits. */
+  function askToDecide(
+    kind: 'accept' | 'reject',
+    registration: AdminRegistration,
+  ) {
+    decisionMutation.reset();
+    setRejectionReason('');
+    setPendingAction({ kind, registration });
+  }
+
+  function closeDialog() {
+    if (actionPending) {
+      return;
+    }
+    decisionMutation.reset();
+    setRejectionReason('');
+    setPendingAction(null);
+  }
+
+  function confirmDecision() {
+    if (pendingAction === null) {
+      return;
+    }
+    decisionMutation.mutate({
+      registrationId: pendingAction.registration.id,
+      action: pendingAction.kind,
+      reason: pendingAction.kind === 'reject' ? rejectionReason : undefined,
+    });
+  }
 
   if (id.length === 0) {
     return (
@@ -201,6 +265,9 @@ export function RegistrationsPage() {
                     key={registration.id}
                     registration={registration}
                     focused={registration.id === registrationId}
+                    onAccept={() => askToDecide('accept', registration)}
+                    onReject={() => askToDecide('reject', registration)}
+                    actionPending={actionPending}
                   />
                 ))}
               </ul>
@@ -271,6 +338,58 @@ export function RegistrationsPage() {
           </section>
         </div>
       </main>
+
+      {pendingAction === null ? null : (
+        <ConfirmActionDialog
+          tone={pendingAction.kind === 'accept' ? 'primary' : 'danger'}
+          title={
+            pendingAction.kind === 'accept'
+              ? 'Accept this application?'
+              : 'Reject this application?'
+          }
+          description={
+            pendingAction.kind === 'accept' ? (
+              <p>
+                <strong>{pendingAction.registration.user.name}</strong>&apos;s
+                application will be marked as accepted. They will be notified
+                and can see the decision on their application page.
+              </p>
+            ) : (
+              <p>
+                <strong>{pendingAction.registration.user.name}</strong>&apos;s
+                application will be permanently deleted and they will be
+                notified with a copy of what they submitted. This cannot be
+                undone.
+              </p>
+            )
+          }
+          reasonField={
+            pendingAction.kind === 'reject'
+              ? {
+                  label: 'Reason for rejection (optional)',
+                  hint: 'Shared with the applicant in their notification and on their application page.',
+                  placeholder:
+                    'e.g. The team already has three frontend developers.',
+                  value: rejectionReason,
+                  maxLength: 500,
+                  onChange: setRejectionReason,
+                }
+              : undefined
+          }
+          confirmLabel={
+            pendingAction.kind === 'accept'
+              ? 'Accept application'
+              : 'Reject application'
+          }
+          pendingLabel={
+            pendingAction.kind === 'accept' ? 'Accepting…' : 'Rejecting…'
+          }
+          pending={actionPending}
+          error={actionError === null ? null : authErrorMessage(actionError)}
+          onConfirm={confirmDecision}
+          onCancel={closeDialog}
+        />
+      )}
     </div>
   );
 }

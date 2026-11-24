@@ -224,10 +224,35 @@
   color: var(--color-muted);
 }
 
-.hackathon-registration-note--done {
+/* The decision states. Accepted is the only green on the page; rejected is
+   the same danger pair the console uses, so the answer reads at a glance. */
+.hackathon-registration-note--accepted {
   border: 2px solid var(--color-success);
   background: var(--color-success-soft);
   color: var(--color-success);
+}
+
+.hackathon-registration-note--rejected {
+  border: 2px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: #ffc2d1;
+}
+
+.hackathon-registration-note--accepted .text-link {
+  color: var(--color-success);
+}
+
+.hackathon-registration-note--rejected .text-link {
+  color: var(--color-danger);
+}
+
+.hackathon-registration-note__headline {
+  margin-bottom: 4px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .hackathon-registration-note--error {
@@ -238,6 +263,38 @@
   border: 2px solid var(--color-danger);
   background: var(--color-danger-soft);
   color: var(--color-body);
+}
+
+.hackathon-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border: 2px solid currentColor;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.hackathon-status--accepted {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.hackathon-status--rejected {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: #ffb3c7;
+}
+.hackathon-status--interview {
+  border-color: var(--color-signal);
+  background: var(--color-signal-soft);
+  color: var(--color-signal);
+}
+.hackathon-status--pending {
+  border-color: var(--color-line-strong);
+  background: rgba(211, 232, 238, 0.06);
+  color: var(--color-muted);
 }
 
 .hackathon-registration-note .text-link {

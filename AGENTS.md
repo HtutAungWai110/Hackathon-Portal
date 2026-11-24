@@ -85,11 +85,16 @@ to suit one screen without saying so.
 
 ## Commits, pushes, and the README
 
+**Never push unless the user explicitly asks you to push in this conversation.** A request to
+commit is not a request to push, permission from an earlier session does not carry over, and an
+earlier push does not make the next one expected. When the ask is only "commit", commit locally,
+report the hash, and stop; push only on a direct instruction such as "push it" or "push to main".
+
 `README.md` is the public record of how this repository is laid out. It carries the package
 table, the directory tree, the client feature folders and routes, the server modules, the API
 surface, the data model, the local setup steps, and the environment variables.
 
-When the user asks to **commit and push at the end of a session**, update `README.md` first, in
+When the user asks to **commit at the end of a session**, update `README.md` first, in
 the same commit. Re-read the tree and the routes rather than trusting what the README already
 says:
 
@@ -98,7 +103,8 @@ says:
    even when the current session did not cause it.
 2. Only then stage: `git add -A` at the repository root.
 3. Commit with a message that covers the whole change, not just the last step.
-4. Push to the branch the work is on, and report the commit hash and the push result.
+4. Push only if the user explicitly asked to push in this conversation. Report the commit hash,
+   and the push result only when a push happened.
 
 A commit that changes structure without changing the README is incomplete. Do not push code
 that the README no longer describes.
@@ -111,5 +117,9 @@ that the README no longer describes.
 4. Never delete or rewrite something you do not understand.
 5. Verify in the package you touched: `npm run lint` and `npm run build`, plus tests where they
    exist. If you touched both, check both.
-6. Report what changed, and which skill you used, if any.
-7. On a commit and push request, follow "Commits, pushes, and the README" above before staging.
+6. **After running tests or any verification that started background processes** (dev servers,
+   `npm run start:prod`, headless browsers, etc.), stop them and free the ports (`:3000`, `:5173`,
+   etc.). Do not leave orphaned servers running; the user should not have to kill ports manually.
+7. Report what changed, and which skill you used, if any.
+8. On a commit request, follow "Commits, pushes, and the README" above before staging. Do not
+   push unless the user explicitly asks.

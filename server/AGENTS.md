@@ -192,4 +192,5 @@ Email is asynchronous. `src/mail/` owns it; auth only calls the `AUTH_MAIL` adap
 3. Make the smallest change that fully solves the problem. No drive by refactors.
 4. Never rewrite unrelated code, and never delete something you do not understand.
 5. Run lint, build, and tests. Fix failures rather than reporting them as unrelated.
-6. Summarize what changed and which skill, if any, you used.
+6. **After running tests or any verification that started background processes** (API servers, Redis-related workers started manually, headless browsers), stop them and free ports (e.g. `:3000`). Do not leave orphaned processes.
+7. Summarize what changed and which skill, if any, you used.
